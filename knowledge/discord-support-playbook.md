@@ -2,7 +2,7 @@
 
 Triage every message into one of these buckets:
 
-- How-to question: answer from runbooks and docs, then offer a next step.
+- How-to question: answer from knowledge and docs, then offer a next step.
 - Setup issue: ask for environment, package versions, toolkit list, and code snippet.
 - Auth issue: ask for user ID, toolkit, connected account ID, status, and exact error.
 - Tool execution issue: ask for tool slug, input shape, request ID, trace ID, and timestamp.

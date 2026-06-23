@@ -117,7 +117,7 @@ thread before reading small text-like files.
 - [src/discord/listeners.ts](./src/discord/listeners.ts): Discord event flow.
 - [src/support/agent.ts](./src/support/agent.ts): support agent prompt and model call.
 - [src/support/privacy.ts](./src/support/privacy.ts): public vs private routing.
-- [knowledge/](./knowledge): editable support runbooks.
+- [knowledge/](./knowledge): editable support knowledge.
 
 ## Composio Sessions Pattern
 

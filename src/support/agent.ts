@@ -7,13 +7,13 @@ import {
 } from "./attachments.js";
 import { fetchComposioToolLogSummaries } from "./composio-logs.js";
 import { formatDebugFields, type DebugFields } from "./debug-fields.js";
-import { loadRunbooks } from "./runbooks.js";
+import { loadKnowledge } from "./knowledge.js";
 
-let runbookCache: Promise<string> | undefined;
+let knowledgeCache: Promise<string> | undefined;
 
-const getRunbooks = () => {
-  runbookCache ??= loadRunbooks();
-  return runbookCache;
+const getKnowledge = () => {
+  knowledgeCache ??= loadKnowledge();
+  return knowledgeCache;
 };
 
 const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
@@ -150,7 +150,7 @@ export interface SupportTurnInput {
 }
 
 const buildSystemPrompt = async (mode: "public" | "private") => {
-  const runbooks = await getRunbooks();
+  const knowledge = await getKnowledge();
   const modeInstructions =
     mode === "private"
       ? `You are in a private staff-only diagnostics thread.
@@ -163,13 +163,13 @@ const buildSystemPrompt = async (mode: "public" | "private") => {
 - Do not use internal diagnostics or private customer/account/log data.
 - Do not claim that you checked Datadog, Metabase, logs, dashboards, or internal systems.
 - If private diagnostics are needed, say that staff will investigate in a private thread.
-- Give safe runbook-based guidance or ask for non-secret clarifying details.`;
+- Give safe knowledge-based guidance or ask for non-secret clarifying details.`;
 
   return `You are a senior customer support engineer for Composio, embedded in Discord.
 
 Your job:
 - Triage customer issues clearly and kindly, and classify before you troubleshoot.
-- Use the provided runbooks before using tools.
+- Use the provided knowledge before using tools.
 - For product questions about Composio behavior, SDKs, CLI, MCP, OAuth, toolkits, auth configs, scopes, triggers, or provider setup, search official docs before answering unless the message is clearly social/off-topic or only requires private diagnostics.
 - Use Composio tools for docs lookup: first call COMPOSIO_SEARCH_TOOLS for "search documentation website" with known fields like "domain: docs.composio.dev", then use COMPOSIO_MULTI_EXECUTE_TOOL for the returned composio_search tools such as web search or URL fetch.
 - Keep docs lookup scoped to official Composio documentation, especially docs.composio.dev and https://docs.composio.dev/llms.txt. Prefer official docs over memory, and cite the docs URL when a tool result provides one.
@@ -205,7 +205,7 @@ Operating guardrails:
 - Customers do not connect internal tools; internal tools are connected to the configured support-team Composio session.
 - Treat @toolkit as the customer's failing toolkit, not a toolkit this support bot must have enabled.
 - Use Datadog and Metabase as internal observability for Composio tool executions, connected-account state, traces, and operational history, including for customer toolkits such as GitHub, Gmail, Slack, or Linear.
-- If diagnostics tools are unavailable or unconnected, say so and continue with runbook-based guidance. If docs search/fetch is unavailable, say the answer is based on loaded runbooks and ask staff to verify docs for product-specific details.
+- If diagnostics tools are unavailable or unconnected, say so and continue with knowledge-based guidance. If docs search/fetch is unavailable, say the answer is based on loaded knowledge and ask staff to verify docs for product-specific details.
 - Do not expose secrets, credentials, tokens, raw unrelated logs, or private customer data.
 - Treat @debug fields as optional clues, not a required form; use whatever is present.
 - If request IDs (x-request-id) are present, use them as the primary clue. If Composio log IDs (log_…) are present, use the provided fetched log summary as primary evidence. Do not ask the customer for payload JSON, screenshots, or another identifier, or tell them to run the Logs API/CLI, before checking the exact execution or saying the lookup is unavailable.
@@ -227,8 +227,8 @@ When responding:
 - Do not paste long raw logs or file contents into Discord; summarize the relevant signal and cite the attachment name.
 - Do not expose raw tool-call, schema, or parameter errors unless the operator must act on that exact error. Prefer "I could not confirm this in internal logs yet" over raw diagnostics-tool failure text.
 
-Runbooks:
-${runbooks}`;
+Knowledge:
+${knowledge}`;
 };
 
 export const runSupportAgent = async ({

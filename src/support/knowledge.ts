@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-const runbookFiles = [
+const knowledgeFiles = [
   "knowledge/composio-overview.md",
   "knowledge/sessions-debugging.md",
   "knowledge/auth-and-connected-accounts.md",
@@ -19,9 +19,9 @@ const runbookFiles = [
   "knowledge/diagnostics/escalation.md",
 ];
 
-export const loadRunbooks = async () => {
+export const loadKnowledge = async () => {
   const entries = await Promise.all(
-    runbookFiles.map(async (relativePath) => {
+    knowledgeFiles.map(async (relativePath) => {
       const content = await readFile(join(rootDir, relativePath), "utf8");
       return `# ${relativePath}\n\n${content.trim()}`;
     })

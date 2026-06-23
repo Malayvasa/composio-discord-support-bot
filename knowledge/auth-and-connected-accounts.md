@@ -12,7 +12,7 @@ If a tool reports missing auth:
 1. Tell the operator which toolkit is not connected.
 2. Do not ask the Discord customer to connect internal tools.
 3. Suggest that an admin connect the toolkit for the support identity.
-4. Continue with runbook-only help if possible.
+4. Continue with knowledge-only help if possible.
 
 For customer-owned toolkits, such as a customer's Gmail or GitHub in their own app, ask for:
 

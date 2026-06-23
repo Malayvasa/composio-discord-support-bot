@@ -31,7 +31,7 @@ Public channels and customer DMs are safe for:
 - Documentation-based support.
 - Sanitized status updates.
 
-Public mode must not receive Composio diagnostic tools. It can still use the local runbooks.
+Public mode must not receive Composio diagnostic tools. It can still use the local knowledge.
 
 ## Private Mode
 
