@@ -95,16 +95,63 @@ PRIVATE_DIAGNOSTICS_CHANNEL_ID=345678901234567890
 
 ## Support Flow
 
-1. A customer posts a support issue in Discord.
-2. The bot reads recent Discord context.
-3. The bot loads runbooks from `knowledge/`.
-4. If the request is public-safe, the bot can use public Composio Search tools to fetch relevant docs before responding.
-5. If the request includes private identifiers or diagnostics, the bot creates a private staff thread and adds routed staff users.
-6. Inside the private thread, the bot creates or reuses a Composio support session.
-7. The private agent uses configured tools when diagnostics are needed.
-8. The public channel only receives safe acknowledgements or sanitized follow-ups.
+```mermaid
+flowchart TD
+  A["Discord message received"] --> B{"Should bot respond?"}
+  B -->|No| Z["Ignore"]
+  B -->|Yes| C{"Message has text or attachments?"}
+  C -->|No| C1["Ask for issue details and useful IDs"]
+  C -->|Yes| D["Send typing / Looking into this..."]
+  D --> E["Parse message"]
+  E --> E1["Clean command or mention"]
+  E --> E2["Extract debug fields: request_id, log_id, org_id, user_id, toolkit, error"]
+  E --> E3["Detect attachments"]
+  E --> F["Classify privacy and route"]
+  F --> G{"Needs private diagnostics?"}
 
-Private-thread triggers include organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, logs, dashboards, and database queries.
+  G -->|No| H{"Generic follow-up in diagnostics channel?"}
+  H -->|Yes, existing private thread| H1["Redirect user to latest private thread"]
+  H -->|No| I["Build public context from recent Discord messages"]
+  I --> J["Create or reuse public docs Composio session"]
+  J --> K["Run public support agent"]
+  K --> K1["Load runbooks"]
+  K --> K2["Use public docs search only when helpful"]
+  K --> K3["Rewrite to short public reply"]
+  K3 --> L["Edit Discord reply with embeds suppressed"]
+  L --> M{"Strong staff tag signal?"}
+  M -->|Yes| M1["Mention routed staff in public reply"]
+  M -->|No| M2["No staff mention"]
+
+  G -->|Yes| P["Fetch private diagnostics channel"]
+  P --> Q{"Can create private thread and add staff?"}
+  Q -->|No| Q1["Fail closed: do not run internal tools"]
+  Q -->|Yes| R["Create private thread and add routed staff"]
+  R --> S["Post compact private handoff"]
+  S --> S1["Public message URL"]
+  S --> S2["Why private and route"]
+  S --> S3["Triggering report, truncated"]
+  S --> S4["Debug fields and attachment metadata"]
+  S --> T["Create or reuse support-team Composio session"]
+  T --> U["Run private support agent"]
+  U --> U1["Load runbooks"]
+  U --> U2["Fetch Composio tool log when log_id is present"]
+  U --> U3["Use configured private tools only when helpful"]
+  U --> U4["Rewrite to customer-facing private update"]
+  U4 --> V["Post private answer with embeds suppressed"]
+  R --> W["Public channel gets sanitized thread link only"]
+```
+
+In short:
+
+1. A customer posts a support issue in Discord.
+2. The bot parses the message, debug fields, and attachments.
+3. Public-safe issues stay public and may use public Composio docs search.
+4. Private identifiers, attachments, explicit log checks, or internal diagnostics requests move into a private staff thread.
+5. Private threads receive a compact handoff, not broad public-channel history.
+6. Private diagnostics use the configured support-team Composio session and private toolkits.
+7. Discord replies suppress URL embeds by default to keep support threads readable.
+
+Private-thread triggers include real organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, Composio log IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, internal logs, explicit log checks, and database queries.
 File attachments also trigger a private thread.
 
 Private thread names use the configured prefix, routing category, and the best available debug clue, such as `support-debug-account-ok-waou8bjo73ly` or `support-debug-infra-pr-xtim-6kfdiir`.
