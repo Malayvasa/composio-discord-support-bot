@@ -169,15 +169,17 @@ To use your own diagnostics:
 
 The bot will use the tools exposed by `session.tools()` and the guidance in the runbooks.
 
-## Offline Support Forum Eval
+## Offline Support Eval
 
-Run an offline eval against recent Discord support forum posts:
+Run an offline eval against recent Plain support issues:
 
 ```bash
-npm run eval:support-forum
+npm run eval:support
 ```
 
-The eval does not post to Discord. It pulls forum threads from `SUPPORT_CHANNEL_IDS`, generates fresh bot answers using `EVAL_OPENAI_MODEL` (default `gpt-5.5`), compares them with actual forum replies, and writes artifacts to `eval/support-forum-diagnostics-YYYY-MM-DD/`.
+The eval does not post to Discord or Plain. It pulls `DONE` support threads from Plain, extracts the original customer issue and later timeline evidence, generates fresh bot answers using `EVAL_OPENAI_MODEL` (default `gpt-5.5`), compares them with the actual Plain resolution, and writes artifacts to `eval/plain-diagnostics-YYYY-MM-DD/`.
+
+`npm run eval:support-forum` is kept as a compatibility alias, but Plain is the canonical source because Discord support posts are mirrored into Plain.
 
 By default, the eval runs in private diagnostics mode with Datadog and Metabase enabled. That lets it test whether the bot checked internal logs or analytics when those tools would materially help.
 
@@ -189,9 +191,15 @@ EVAL_USE_PRIVATE_TOOLS=true
 EVAL_TOOLKITS=datadog,metabase
 EVAL_DAYS_BACK=30
 EVAL_MAX_THREADS=0
-EVAL_MAX_MESSAGES_PER_THREAD=300
 EVAL_CONCURRENCY=3
 EVAL_OUTPUT_NAME=
+EVAL_PLAIN_STATUSES=DONE
+EVAL_PLAIN_VERSION=20260615_00
+EVAL_PLAIN_CONNECTED_ACCOUNT_ID=
+EVAL_PLAIN_MAX_PAGES=10
+EVAL_PLAIN_TIMELINE_ENTRIES=100
+EVAL_PLAIN_MIN_TEXT_ENTRIES=2
+EVAL_RESOLUTION_EVIDENCE_MAX_CHARS=60000
 ```
 
 ## Key Files

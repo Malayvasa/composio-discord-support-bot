@@ -9,68 +9,42 @@ import { config } from "../src/config.js";
 import { runSupportAgent } from "../src/support/agent.js";
 import { parseDebugFields } from "../src/support/debug-fields.js";
 
-const discordApi = "https://discord.com/api/v10";
 const evalModel = process.env.EVAL_OPENAI_MODEL ?? "gpt-5.5";
 const daysBack = Number(process.env.EVAL_DAYS_BACK ?? 30);
 const maxThreads = Number(process.env.EVAL_MAX_THREADS ?? 0);
-const maxMessagesPerThread = Number(process.env.EVAL_MAX_MESSAGES_PER_THREAD ?? 300);
 const concurrency = Number(process.env.EVAL_CONCURRENCY ?? 3);
 const usePrivateTools = (process.env.EVAL_USE_PRIVATE_TOOLS ?? "true") === "true";
 const evalToolkits = (process.env.EVAL_TOOLKITS ?? "datadog,metabase")
   .split(",")
   .map((toolkit) => toolkit.trim())
   .filter(Boolean);
+const plainStatuses = (process.env.EVAL_PLAIN_STATUSES ?? "DONE")
+  .split(",")
+  .map((status) => status.trim())
+  .filter(Boolean);
+const plainVersion = process.env.EVAL_PLAIN_VERSION ?? "20260615_00";
+const plainConnectedAccountId = process.env.EVAL_PLAIN_CONNECTED_ACCOUNT_ID;
+const plainMaxPages = Number(process.env.EVAL_PLAIN_MAX_PAGES ?? 10);
+const plainTimelineEntries = Number(process.env.EVAL_PLAIN_TIMELINE_ENTRIES ?? 100);
+const plainMinTextEntries = Number(process.env.EVAL_PLAIN_MIN_TEXT_ENTRIES ?? 2);
+const evidenceMaxChars = Number(process.env.EVAL_RESOLUTION_EVIDENCE_MAX_CHARS ?? 60_000);
 const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 const runDate = new Date().toISOString().slice(0, 10);
 const outputName =
   process.env.EVAL_OUTPUT_NAME ??
-  `support-forum-${usePrivateTools ? "diagnostics-" : ""}${runDate}`;
+  `plain-${usePrivateTools ? "diagnostics-" : ""}${runDate}`;
 const outputDir = join(process.cwd(), "eval", outputName);
-
-interface DiscordChannel {
-  id: string;
-  name: string;
-  type: number;
-  guild_id?: string;
-}
-
-interface DiscordThread {
-  id: string;
-  parent_id?: string;
-  name: string;
-  type: number;
-  owner_id?: string;
-  thread_metadata?: {
-    archive_timestamp?: string;
-    archived?: boolean;
-  };
-}
-
-interface DiscordMessage {
-  id: string;
-  channel_id: string;
-  content: string;
-  timestamp: string;
-  author: {
-    id: string;
-    username: string;
-    bot?: boolean;
-  };
-  attachments?: Array<{
-    id: string;
-    filename: string;
-    content_type?: string;
-    size: number;
-    url: string;
-  }>;
-}
 
 interface EvalThread {
   id: string;
   name: string;
   url: string;
   createdAt: string;
+  updatedAt?: string;
   ownerId?: string;
+  source: "plain";
+  status: string;
+  labels: string[];
   query: string;
   replayContext: string;
   resolutionEvidence: string;
@@ -113,13 +87,67 @@ interface EvalSupportSession {
   tools: ToolSet;
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+interface PlainEdge<T> {
+  cursor?: string;
+  node?: T;
+}
+
+interface PlainPage<T> {
+  edges?: Array<PlainEdge<T>>;
+  pageInfo?: {
+    hasNextPage?: boolean;
+    endCursor?: string;
+  };
+  totalCount?: number;
+}
+
+interface PlainThreadSummary {
+  id: string;
+  ref?: string;
+  title?: string;
+  status?: string;
+  createdAt?: PlainTimestamp;
+  updatedAt?: PlainTimestamp;
+  previewText?: string | null;
+}
+
+interface PlainThreadDetail extends PlainThreadSummary {
+  labels?: Array<{
+    labelType?: {
+      name?: string | null;
+    } | null;
+  } | null>;
+  timelineEntries?: PlainPage<PlainTimelineEntry>;
+}
+
+interface PlainTimestamp {
+  iso8601?: string;
+}
+
+interface PlainTimelineEntry {
+  id?: string;
+  llmText?: string | null;
+  timestamp?: PlainTimestamp;
+  actor?: {
+    __typename?: string;
+  } | null;
+  entry?: {
+    __typename?: string;
+  } | null;
+}
+
+interface PlainToolResponse<T> {
+  data?: T;
+  error?: unknown;
+  successful?: boolean;
+}
 
 const composio = new Composio({
   apiKey: config.composioApiKey,
   provider: new VercelProvider(),
 });
 let evalSupportSession: Promise<EvalSupportSession> | undefined;
+let resolvedPlainAccountId: Promise<string> | undefined;
 
 const getEvalSupportSession = async () => {
   evalSupportSession ??= (async () => {
@@ -154,206 +182,292 @@ const getEvalSupportSession = async () => {
   return evalSupportSession;
 };
 
-const request = async <T>(path: string): Promise<T> => {
-  const token = config.discordToken;
+const asRecord = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : undefined;
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    const response = await fetch(`${discordApi}${path}`, {
-      headers: {
-        Authorization: `Bot ${token}`,
-      },
+const asArray = <T>(value: unknown): T[] => (Array.isArray(value) ? value : []);
+
+const getTimestamp = (value: PlainTimestamp | string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+
+  return typeof value === "string" ? value : value.iso8601;
+};
+
+const truncate = (value: string, maxChars: number) =>
+  value.length <= maxChars ? value : `${value.slice(0, maxChars)}\n[truncated]`;
+
+const normalizeText = (value: string) =>
+  value
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const looksLikePlainAccount = (account: Record<string, unknown>) => {
+  const searchable = JSON.stringify({
+    id: account.id,
+    toolkit: account.toolkit,
+    toolkitSlug: account.toolkitSlug,
+    appName: account.appName,
+    name: account.name,
+  }).toLowerCase();
+
+  return searchable.includes("plain");
+};
+
+const getPlainConnectedAccountId = async () => {
+  resolvedPlainAccountId ??= (async () => {
+    if (plainConnectedAccountId) {
+      return plainConnectedAccountId;
+    }
+
+    const accounts = await composio.connectedAccounts.list({
+      userIds: [config.supportSessionUserId],
     });
+    const accountItems = asArray<Record<string, unknown>>(
+      asRecord(accounts)?.items ?? accounts
+    );
+    const activePlainAccount = accountItems.find(
+      (account) => account.status === "ACTIVE" && looksLikePlainAccount(account)
+    );
+    const accountId = activePlainAccount?.id;
 
-    if (response.status === 429) {
-      const body = (await response.json()) as { retry_after?: number };
-      await sleep(Math.ceil((body.retry_after ?? 1) * 1000));
-      continue;
+    if (typeof accountId !== "string") {
+      throw new Error(
+        [
+          "No active Plain connected account was found for the support user.",
+          "Connect Plain or set EVAL_PLAIN_CONNECTED_ACCOUNT_ID to an active Plain connected account ID.",
+        ].join(" ")
+      );
     }
 
-    if (!response.ok) {
-      throw new Error(`${path} failed: ${response.status} ${await response.text()}`);
-    }
+    return accountId;
+  })();
 
-    return (await response.json()) as T;
+  return resolvedPlainAccountId;
+};
+
+const executePlainTool = async <T>(
+  slug: "PLAIN_QUERY_THREADS" | "PLAIN_RUN_GRAPHQL_QUERY",
+  args: Record<string, unknown>
+) => {
+  const response = (await composio.tools.execute(slug, {
+    userId: config.supportSessionUserId,
+    connectedAccountId: await getPlainConnectedAccountId(),
+    version: plainVersion,
+    arguments: args,
+  })) as PlainToolResponse<T>;
+
+  if (response.error || response.successful === false) {
+    throw new Error(`${slug} failed: ${JSON.stringify(response.error ?? response)}`);
   }
 
-  throw new Error(`${path} failed after retries.`);
+  return response.data as T;
 };
 
-const snowflakeTimestamp = (id: string) =>
-  new Date(Number((BigInt(id) >> 22n) + 1420070400000n));
+const listPlainThreadSummaries = async () => {
+  const summaries: PlainThreadSummary[] = [];
+  let cursor: string | undefined;
 
-const cleanContent = (message: DiscordMessage) => {
-  const content = message.content.trim() || "[no text content]";
-  const attachments = message.attachments ?? [];
+  for (let page = 0; page < plainMaxPages; page += 1) {
+    const data = await executePlainTool<{
+      threads?: PlainPage<PlainThreadSummary>;
+    }>("PLAIN_QUERY_THREADS", {
+      ...(cursor ? { cursor } : {}),
+      ...(plainStatuses.length ? { statuses: plainStatuses } : {}),
+    });
+    const threads = data.threads;
+    const edges = threads?.edges ?? [];
 
-  if (attachments.length === 0) {
-    return content;
-  }
-
-  const attachmentText = attachments
-    .map((attachment) => {
-      const type = attachment.content_type ?? "unknown";
-      return `[attachment: ${attachment.filename}, ${type}, ${attachment.size} bytes]`;
-    })
-    .join("\n");
-
-  return `${content}\n${attachmentText}`;
-};
-
-const formatMessages = (messages: DiscordMessage[]) =>
-  messages
-    .map((message) => {
-      const author = message.author.bot
-        ? `${message.author.username} (bot)`
-        : message.author.username;
-      return `[${message.timestamp}] ${author}: ${cleanContent(message)}`;
-    })
-    .join("\n\n");
-
-const getForumChannels = async () => {
-  const channels = await Promise.all(
-    config.supportChannelIds.map((channelId) =>
-      request<DiscordChannel>(`/channels/${channelId}`)
-    )
-  );
-
-  return channels.filter((channel) => channel.type === 15);
-};
-
-const listActiveThreads = async (guildId: string, forumId: string) => {
-  const data = await request<{ threads: DiscordThread[] }>(
-    `/guilds/${guildId}/threads/active`
-  );
-
-  return data.threads.filter((thread) => thread.parent_id === forumId);
-};
-
-const listArchivedThreads = async (forumId: string) => {
-  const threads: DiscordThread[] = [];
-  let before: string | undefined;
-
-  while (true) {
-    const params = new URLSearchParams({ limit: "100" });
-    if (before) {
-      params.set("before", before);
-    }
-
-    const data = await request<{
-      threads: DiscordThread[];
-      has_more?: boolean;
-    }>(`/channels/${forumId}/threads/archived/public?${params}`);
-
-    threads.push(...data.threads);
-
-    const last = data.threads.at(-1);
-    before = last?.thread_metadata?.archive_timestamp;
-
-    if (!data.has_more || !before || new Date(before) < since) {
-      break;
-    }
-  }
-
-  return threads;
-};
-
-const fetchThreadMessages = async (threadId: string) => {
-  const messages: DiscordMessage[] = [];
-  let before: string | undefined;
-
-  while (messages.length < maxMessagesPerThread) {
-    const params = new URLSearchParams({ limit: "100" });
-    if (before) {
-      params.set("before", before);
-    }
-
-    const page = await request<DiscordMessage[]>(
-      `/channels/${threadId}/messages?${params}`
+    summaries.push(
+      ...edges
+        .map((edge) => edge.node)
+        .filter((thread): thread is PlainThreadSummary => Boolean(thread))
     );
 
-    if (page.length === 0) {
+    const nextCursor = threads?.pageInfo?.endCursor ?? edges.at(-1)?.cursor;
+
+    if (!threads?.pageInfo?.hasNextPage || !nextCursor) {
       break;
     }
 
-    messages.push(...page);
-    before = page.at(-1)?.id;
+    cursor = nextCursor;
   }
 
-  return messages.sort(
-    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-  );
+  return summaries;
 };
 
-const collectThreads = async () => {
-  const forumChannels = await getForumChannels();
+const getPlainThreadDetail = async (threadId: string) => {
+  const query = `query GetThread($threadId: ID!, $timelineFirst: Int!) {
+  thread(threadId: $threadId) {
+    id
+    ref
+    title
+    status
+    previewText
+    createdAt { iso8601 }
+    updatedAt { iso8601 }
+    labels { labelType { name } }
+    timelineEntries(first: $timelineFirst) {
+      edges {
+        cursor
+        node {
+          id
+          llmText
+          timestamp { iso8601 }
+          actor { __typename }
+          entry { __typename }
+        }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`;
 
-  if (forumChannels.length === 0) {
-    throw new Error("SUPPORT_CHANNEL_IDS does not include a Discord forum channel.");
+  const data = await executePlainTool<{
+    data?: {
+      thread?: PlainThreadDetail;
+    };
+    thread?: PlainThreadDetail;
+  }>("PLAIN_RUN_GRAPHQL_QUERY", {
+    query,
+    variables: {
+      threadId,
+      timelineFirst: plainTimelineEntries,
+    },
+  });
+
+  const thread = data.data?.thread ?? data.thread;
+
+  if (!thread) {
+    throw new Error(`Plain thread ${threadId} was not returned by GraphQL.`);
   }
 
-  const threadMap = new Map<string, DiscordThread>();
+  return thread;
+};
 
-  for (const forum of forumChannels) {
-    if (!forum.guild_id) {
-      continue;
-    }
+const excludedIssuePattern =
+  /\b(partnership|sponsor|sponsored|link insertion|guest post|vendor|calendar|social|hiring|job|recruit|sales|demo request|dpa|baa|hipaa|compliance questionnaire|test thread)\b/i;
+const resolutionPattern =
+  /\b(resolved|fixed|solved|workaround|root cause|confirmed|shipped|deployed|closing|done|works now)\b/i;
 
-    const [active, archived] = await Promise.all([
-      listActiveThreads(forum.guild_id, forum.id),
-      listArchivedThreads(forum.id),
-    ]);
+const isAgentEntry = (text: string) =>
+  /^(agent|machine user|bot|composio support|support)\b/i.test(text);
 
-    for (const thread of [...active, ...archived]) {
-      threadMap.set(thread.id, thread);
-    }
+const formatTimelineEntry = (entry: PlainTimelineEntry) => {
+  const timestamp = getTimestamp(entry.timestamp) ?? "unknown time";
+  const actor = entry.actor?.__typename ?? "PlainTimelineActor";
+  const entryType = entry.entry?.__typename ?? "PlainTimelineEntry";
+  return `[${timestamp}] ${actor}/${entryType}: ${normalizeText(entry.llmText ?? "")}`;
+};
+
+const threadToEvalCase = (thread: PlainThreadDetail): EvalThread | undefined => {
+  const labels = (thread.labels ?? [])
+    .map((label) => label?.labelType?.name)
+    .filter((label): label is string => Boolean(label));
+  const searchable = [
+    thread.title ?? "",
+    thread.previewText ?? "",
+    labels.join(" "),
+  ].join(" ");
+
+  if (excludedIssuePattern.test(searchable)) {
+    return undefined;
   }
 
-  const sortedThreads = Array.from(threadMap.values()).sort(
-    (a, b) => snowflakeTimestamp(b.id).getTime() - snowflakeTimestamp(a.id).getTime()
-  );
-  const forumById = new Map(forumChannels.map((forum) => [forum.id, forum]));
-  const evalThreads: EvalThread[] = [];
+  const createdAt = getTimestamp(thread.createdAt);
+  const updatedAt = getTimestamp(thread.updatedAt);
+  const relevantDate = updatedAt ?? createdAt;
 
-  for (const thread of sortedThreads) {
-    const createdAt = snowflakeTimestamp(thread.id);
+  if (!createdAt || !relevantDate || new Date(relevantDate) < since) {
+    return undefined;
+  }
 
-    if (createdAt < since) {
-      continue;
-    }
-
-    const messages = await fetchThreadMessages(thread.id);
-    const firstHuman = messages.find((message) => !message.author.bot);
-
-    if (!firstHuman) {
-      continue;
-    }
-
-    const laterMessages = messages.filter((message) => message.id !== firstHuman.id);
-    const guildId = thread.parent_id
-      ? forumById.get(thread.parent_id)?.guild_id
-      : undefined;
-    const url = `https://discord.com/channels/${guildId ?? "@me"}/${thread.id}`;
-
-    evalThreads.push({
-      id: thread.id,
-      name: thread.name,
-      url,
-      createdAt: createdAt.toISOString(),
-      ownerId: thread.owner_id,
-      query: cleanContent(firstHuman),
-      replayContext: [
-        `Forum thread title: ${thread.name}`,
-        `Forum thread URL: ${url}`,
-        "",
-        "Original customer post:",
-        cleanContent(firstHuman),
-      ].join("\n"),
-      resolutionEvidence: formatMessages(laterMessages),
-      messageCount: messages.length,
+  const textEntries = (thread.timelineEntries?.edges ?? [])
+    .map((edge) => edge.node)
+    .filter((entry): entry is PlainTimelineEntry => Boolean(entry?.llmText?.trim()))
+    .sort((a, b) => {
+      const aTime = new Date(getTimestamp(a.timestamp) ?? 0).getTime();
+      const bTime = new Date(getTimestamp(b.timestamp) ?? 0).getTime();
+      return aTime - bTime;
     });
 
+  const firstCustomerEntry =
+    textEntries.find((entry) => !isAgentEntry(normalizeText(entry.llmText ?? ""))) ??
+    textEntries[0];
+
+  if (!firstCustomerEntry) {
+    return undefined;
+  }
+
+  const firstCustomerIndex = textEntries.indexOf(firstCustomerEntry);
+  const laterEntries = textEntries.slice(firstCustomerIndex + 1);
+  const resolutionEvidence = normalizeText(
+    laterEntries.map(formatTimelineEntry).join("\n\n")
+  );
+  const previewResolution = resolutionPattern.test(
+    [thread.previewText ?? "", resolutionEvidence].join(" ")
+  );
+
+  if (textEntries.length < plainMinTextEntries && !previewResolution) {
+    return undefined;
+  }
+
+  const ref = thread.ref ?? thread.id;
+  const title = thread.title?.trim() || ref;
+  const query = normalizeText(firstCustomerEntry.llmText ?? "");
+  const sourceUrl = `plain://thread/${ref}`;
+
+  return {
+    id: thread.id,
+    name: `${ref}: ${title}`,
+    url: sourceUrl,
+    createdAt,
+    updatedAt,
+    source: "plain",
+    status: thread.status ?? "UNKNOWN",
+    labels,
+    query,
+    replayContext: [
+      `Plain thread: ${ref}`,
+      `Plain thread ID: ${thread.id}`,
+      `Plain status: ${thread.status ?? "UNKNOWN"}`,
+      labels.length ? `Plain labels: ${labels.join(", ")}` : "",
+      `Plain source: ${sourceUrl}`,
+      "",
+      "Original customer issue:",
+      query,
+      thread.previewText ? ["", "Plain preview:", thread.previewText].join("\n") : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    resolutionEvidence: truncate(
+      resolutionEvidence ||
+        `Plain status is ${thread.status ?? "UNKNOWN"}, but no later timeline text was available.`,
+      evidenceMaxChars
+    ),
+    messageCount: textEntries.length,
+  };
+};
+
+const collectPlainThreads = async () => {
+  const summaries = await listPlainThreadSummaries();
+  const evalThreads: EvalThread[] = [];
+
+  console.log(`[eval] fetched ${summaries.length} Plain thread summaries`);
+
+  for (const summary of summaries) {
     if (maxThreads > 0 && evalThreads.length >= maxThreads) {
       break;
+    }
+
+    const detail = await getPlainThreadDetail(summary.id);
+    const evalThread = threadToEvalCase(detail);
+
+    if (evalThread) {
+      evalThreads.push(evalThread);
+      console.log(`[eval] selected ${evalThreads.length}: ${evalThread.name}`);
     }
   }
 
@@ -433,7 +547,7 @@ const judgeThread = async (
   thread: EvalThread,
   answer: BotAnswer
 ): Promise<Judgement> => {
-  const prompt = `You are evaluating an offline support bot answer against the real Discord support forum resolution.
+  const prompt = `You are evaluating an offline support bot answer against the real Plain support thread resolution.
 
 Return only valid JSON matching this TypeScript shape:
 {
@@ -459,18 +573,20 @@ Return only valid JSON matching this TypeScript shape:
 
 Score each field 1-5, where 5 is best for correctness/helpfulness/safety/timeToResolutionImpact, 5 means the bot asked all needed diagnostics for missingDiagnostics, 1 is best for hallucinationRisk, and diagnosticEvidenceQuality is 1-5 where 5 means the answer used or explicitly ruled out Datadog/Metabase evidence well when needed.
 
-This eval replay has private diagnostics tools enabled for Datadog and Metabase. Judge whether those tools should have been used based on the original query and actual forum resolution. If the bot should have checked logs/analytics but did not, mark diagnosticEvidenceQuality low and include that in botMisses.
+This eval replay has private diagnostics tools enabled for Datadog and Metabase. Judge whether those tools should have been used based on the original query and actual Plain thread resolution. If the bot should have checked logs/analytics but did not, mark diagnosticEvidenceQuality low and include that in botMisses.
 
-Forum thread:
+Plain support thread:
 ${JSON.stringify(
   {
     threadId: thread.id,
     title: thread.name,
+    status: thread.status,
+    labels: thread.labels,
     originalQuery: thread.query,
     replayMode: answer.mode,
     availableToolkits: answer.toolkits,
     botAnswer: answer.answer,
-    actualForumReplies: thread.resolutionEvidence || "[no later replies]",
+    actualResolutionEvidence: thread.resolutionEvidence || "[no later replies]",
   },
   null,
   2
@@ -516,8 +632,10 @@ const makeReport = (
       return [
         `### ${thread.name}`,
         "",
-        `- Thread: ${thread.url}`,
-        `- Messages: ${thread.messageCount}`,
+        `- Source: ${thread.url}`,
+        `- Status: ${thread.status}`,
+        thread.labels.length ? `- Labels: ${thread.labels.join(", ")}` : "",
+        `- Timeline text entries: ${thread.messageCount}`,
         `- Model: ${answer?.model ?? evalModel}`,
         `- Replay mode: ${answer?.mode ?? (usePrivateTools ? "private" : "public")}`,
         answer?.toolkits.length
@@ -545,10 +663,11 @@ const makeReport = (
     .join("\n");
 
   return [
-    "# Support Forum Bot Eval",
+    "# Plain Support Bot Eval",
     "",
     `Run date: ${new Date().toISOString()}`,
-    `Forum threads evaluated: ${threads.length}`,
+    `Plain issues evaluated: ${threads.length}`,
+    `Plain statuses: ${plainStatuses.join(", ") || "all"}`,
     `Days back: ${daysBack}`,
     `Eval model: ${evalModel}`,
     `Replay mode: ${usePrivateTools ? "private diagnostics" : "public only"}`,
@@ -581,18 +700,21 @@ const makeReport = (
 
 await mkdir(outputDir, { recursive: true });
 
-console.log(`[eval] collecting forum threads since ${since.toISOString()}`);
-const threads = await collectThreads();
+console.log(`[eval] collecting Plain support issues since ${since.toISOString()}`);
+console.log("[eval] Plain settings", {
+  statuses: plainStatuses,
+  version: plainVersion,
+  maxPages: plainMaxPages,
+  timelineEntries: plainTimelineEntries,
+});
+const threads = await collectPlainThreads();
 const rawThreadsPath = join(outputDir, "raw-threads.json");
 const answersPath = join(outputDir, "bot-answers.json");
 const judgementsPath = join(outputDir, "judgements.json");
 const reportPath = join(outputDir, "report.md");
 
-await writeFile(
-  rawThreadsPath,
-  JSON.stringify(threads, null, 2)
-);
-console.log(`[eval] collected ${threads.length} threads`);
+await writeFile(rawThreadsPath, JSON.stringify(threads, null, 2));
+console.log(`[eval] collected ${threads.length} Plain issues`);
 
 const answers = uniqueByThreadId(await loadJson<BotAnswer[]>(answersPath, []));
 const answeredThreadIds = new Set(answers.map((answer) => answer.threadId));
