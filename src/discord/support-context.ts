@@ -128,7 +128,7 @@ export const buildPrivateCaseContext = ({
     formatPrivateAttachments(attachments),
     "",
     "**Next step**",
-    "- I will check the available support tools and reply with a customer-safe update.",
+    "- I will check the available support tools and reply here.",
   ]
     .filter(Boolean)
     .join("\n");

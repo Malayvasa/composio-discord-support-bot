@@ -42,7 +42,7 @@ const publicProgressStates = [
 const privateProgressStates = [
   "Reviewing the case summary.",
   "Checking available support tools.",
-  "Writing a customer-safe update.",
+  "Preparing the reply.",
 ];
 
 export const registerSupportListeners = (
