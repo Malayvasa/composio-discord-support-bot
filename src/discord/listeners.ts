@@ -79,6 +79,8 @@ const confirmedFieldsFrom = (
       ) as DebugFieldKey[])
     : [];
 
+const unique = (values: string[]) => Array.from(new Set(values));
+
 const buildPrivateAgentContext = (
   caseState: ReturnType<typeof upsertSupportCaseState>,
   discordContext: string
@@ -129,6 +131,7 @@ export const registerSupportListeners = (
       allowedMentions: { repliedUser: false },
       flags: MessageFlags.SuppressEmbeds,
     });
+    let openedPrivateThreadUrl: string | undefined;
 
     try {
       await channel.sendTyping();
@@ -186,7 +189,12 @@ export const registerSupportListeners = (
           diagnosticsChannel
         );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
-        const staffMentions = formatStaffMentions(decision.staffUserIds);
+        openedPrivateThreadUrl = threadUrl;
+        const participantUserIds = unique([
+          ...decision.staffUserIds,
+          message.author.id,
+        ]);
+        const participantMentions = formatStaffMentions(participantUserIds);
         rememberPrivateThreadForChannel(message.channel.id, threadUrl);
 
         await thinking.edit({
@@ -207,9 +215,7 @@ export const registerSupportListeners = (
         });
 
         const privateStartMessage = [
-          staffMentions,
-          "",
-          `<@${message.author.id}>`,
+          participantMentions,
           "",
           "**Private support thread**",
           "Shared thread for you and Composio support. We can use account, org, log, or diagnostics context here without posting it publicly.",
@@ -220,7 +226,7 @@ export const registerSupportListeners = (
         await thread.send({
           content: privateStartMessage,
           allowedMentions: {
-            users: [...decision.staffUserIds, message.author.id],
+            users: participantUserIds,
           },
           flags: MessageFlags.SuppressEmbeds,
         });
@@ -360,10 +366,16 @@ export const registerSupportListeners = (
     } catch (error) {
       console.error("[discord] failed to process support message", error);
       await thinking.edit({
-        content: [
-          "I could not safely start the private diagnostics flow, so I did not run internal tool checks.",
-          "Please ask a support admin to verify private thread permissions and staff routing env vars.",
-        ].join("\n"),
+        content: openedPrivateThreadUrl
+          ? [
+              "I opened the private support thread, but hit an error before finishing the diagnostic reply.",
+              `Please continue there: ${openedPrivateThreadUrl}`,
+              "I did not run internal tool checks after the error.",
+            ].join("\n")
+          : [
+              "I could not safely start the private diagnostics flow, so I did not run internal tool checks.",
+              "Please ask a support admin to verify private thread permissions and staff routing env vars.",
+            ].join("\n"),
         flags: MessageFlags.SuppressEmbeds,
       });
     }
