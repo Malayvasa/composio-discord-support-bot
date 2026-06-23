@@ -117,7 +117,7 @@ const isLikelyNonSupportPost = (message: Message, customerMessage: string) => {
 };
 
 const isGenericDiagnosticsFollowup = (message: string) =>
-  /^(what can you tell me|what do you see|any update|update\??|can you check|check this|continue|go on|what happened|thoughts\??)\??$/i.test(
+  /^(what can you tell me|what do you see|what is happening|what's happening|any update|update\??|can you check|check this|continue|go on|what happened|thoughts\??)\??$/i.test(
     message.trim()
   );
 
@@ -158,6 +158,64 @@ const getPrivateDiagnosticsChannel = async (
   }
 
   return channel;
+};
+
+type ActiveThreadListableChannel = TextBasedChannel & {
+  id: string;
+  threads: {
+    fetchActive: () => Promise<{
+      threads: {
+        values: () => Iterable<{
+          id: string;
+          type: ChannelType;
+          parentId: string | null;
+          createdTimestamp: number | null;
+          archived?: boolean;
+        }>;
+      };
+    }>;
+  };
+};
+
+const isActiveThreadListableChannel = (
+  channel: TextBasedChannel
+): channel is ActiveThreadListableChannel =>
+  "id" in channel &&
+  "threads" in channel &&
+  typeof (
+    channel as { threads?: { fetchActive?: unknown } }
+  ).threads?.fetchActive === "function";
+
+const getLatestPrivateThreadUrl = async (message: Message) => {
+  const mappedThreadUrl = latestPrivateThreadByChannelId.get(message.channel.id);
+
+  if (mappedThreadUrl) {
+    return mappedThreadUrl;
+  }
+
+  if (!message.guild || !isActiveThreadListableChannel(message.channel)) {
+    return undefined;
+  }
+
+  const activeThreads = await message.channel.threads.fetchActive();
+  const [latestThread] = Array.from(activeThreads.threads.values())
+    .filter(
+      (thread) =>
+        thread.type === ChannelType.PrivateThread &&
+        thread.parentId === message.channel.id
+    )
+    .sort(
+      (left, right) =>
+        (right.createdTimestamp ?? 0) - (left.createdTimestamp ?? 0)
+    );
+
+  if (!latestThread) {
+    return undefined;
+  }
+
+  const threadUrl = `https://discord.com/channels/${message.guild.id}/${latestThread.id}`;
+  latestPrivateThreadByChannelId.set(message.channel.id, threadUrl);
+  return threadUrl;
 };
 
 const cleanCustomerMessage = (client: Client, message: Message) => {
@@ -301,7 +359,7 @@ export const registerSupportListeners = (
         config.privateDiagnosticsChannelId === message.channel.id &&
         isGenericDiagnosticsFollowup(latestCustomerMessage)
       ) {
-        const threadUrl = latestPrivateThreadByChannelId.get(message.channel.id);
+        const threadUrl = await getLatestPrivateThreadUrl(message);
 
         if (threadUrl) {
           await thinking.edit(
