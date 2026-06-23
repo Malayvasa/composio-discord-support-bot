@@ -8,6 +8,7 @@ import { config } from "../config.js";
 import type { SupportSessionManager } from "../composio/session.js";
 import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
+import { formatDebugFields, parseDebugFields } from "../support/debug-fields.js";
 import { classifyPrivacy, isConfiguredStaffUser } from "../support/privacy.js";
 import {
   formatMessageForContext,
@@ -148,7 +149,8 @@ export const registerSupportListeners = (
     try {
       await channel.sendTyping();
       const discordContext = await getDiscordContext(channel, message);
-      const decision = classifyPrivacy(customerMessage);
+      const debugFields = parseDebugFields(customerMessage);
+      const decision = classifyPrivacy(customerMessage, debugFields);
 
       if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
         const thread = await createPrivateInvestigationThread(message, decision);
@@ -174,6 +176,9 @@ export const registerSupportListeners = (
             `Public message: ${message.url}`,
             `Route: ${decision.route}`,
             `Privacy reasons: ${decision.reasons.join(", ")}`,
+            "",
+            "Parsed @debug fields:",
+            formatDebugFields(debugFields),
           ].join("\n"),
           allowedMentions: { users: decision.staffUserIds },
         });
@@ -187,6 +192,7 @@ export const registerSupportListeners = (
           tools: supportSession.tools,
           composioSessionId: supportSession.sessionId,
           composioUserId: supportSession.userId,
+          debugFields,
         });
 
         await sendLongChannelMessage(thread, privateAnswer);
@@ -204,6 +210,7 @@ export const registerSupportListeners = (
         tools: supportSession?.tools,
         composioSessionId: supportSession?.sessionId,
         composioUserId: supportSession?.userId,
+        debugFields,
       });
 
       const chunks = splitDiscordMessage(answer);

@@ -19,6 +19,8 @@ Ask for these identifiers when they are missing:
 - Exact error text.
 - Time window with timezone.
 
+These are helpful clues, not required form fields. If the user provides only an org ID or only an email, use it when it helps and ask for the smallest extra clue needed for the next diagnostic step.
+
 Interpret common statuses:
 
 - 400: likely malformed input, missing required field, or unsupported option.
@@ -29,4 +31,3 @@ Interpret common statuses:
 - 5xx: service or provider failure. Check logs and escalate if production impact exists.
 
 Prefer narrow diagnostic searches by request ID, trace ID, user ID, session ID, connected account ID, or short time window.
-

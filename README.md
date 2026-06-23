@@ -88,6 +88,24 @@ The bot needs Discord permissions to send messages, create private threads, and 
 
 Private-thread triggers include organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, logs, dashboards, and database queries.
 
+## Optional Debug Fields
+
+Users can include structured clues in any support message:
+
+```txt
+@project_id: pr_XTim_6KFDiIR
+@org_id: ok_WAOU8bjO73lY
+@org_member_email: malay@composio.dev
+@user_id: 04570f62-4d8d-46e2-b5f3-3dd1b3972495
+@environment: production
+@time_window: last 2 hours
+@toolkit: github
+@tool: GITHUB_CREATE_ISSUE
+@error: 403 permission denied
+```
+
+These fields are optional. The bot extracts what is present, investigates when it has enough signal, and asks for only the missing clue it needs next. See `knowledge/debug-fields.md` for supported fields and where users can find them.
+
 ## Staff Routing
 
 Routing is intentionally simple and env-based for the public example:
@@ -117,6 +135,7 @@ The bot will use the tools exposed by `session.tools()` and the guidance in the 
 
 - `src/composio/session.ts`: Composio Sessions setup.
 - `src/support/agent.ts`: Support agent prompt and AI SDK call.
+- `src/support/debug-fields.ts`: Optional `@key: value` debug-field parser.
 - `src/support/privacy.ts`: Private diagnostics classifier and staff routing.
 - `src/discord/listeners.ts`: Discord message handling.
 - `src/discord/private-thread.ts`: Private thread creation and staff member adds.

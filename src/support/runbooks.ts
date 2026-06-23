@@ -8,6 +8,7 @@ const runbookFiles = [
   "knowledge/composio-overview.md",
   "knowledge/sessions-debugging.md",
   "knowledge/auth-and-connected-accounts.md",
+  "knowledge/debug-fields.md",
   "knowledge/discord-support-playbook.md",
   "knowledge/diagnostics/logs.md",
   "knowledge/diagnostics/datadog.md",
@@ -25,4 +26,3 @@ export const loadRunbooks = async () => {
 
   return entries.join("\n\n---\n\n");
 };
-

@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import type { DebugFields } from "./debug-fields.js";
 
 export type IssueRoute = "auth" | "billing" | "infra" | "diagnostics" | "default";
 
@@ -38,7 +39,10 @@ const routeStaff = (route: IssueRoute) => {
   }
 };
 
-export const classifyPrivacy = (message: string): PrivacyDecision => {
+export const classifyPrivacy = (
+  message: string,
+  debugFields: DebugFields = {}
+): PrivacyDecision => {
   const normalized = message.toLowerCase();
   const reasons: string[] = [];
 
@@ -62,19 +66,41 @@ export const classifyPrivacy = (message: string): PrivacyDecision => {
     }
   }
 
+  const privateFieldReasons: Partial<Record<keyof DebugFields, string>> = {
+    project_id: "project ID",
+    org_id: "organization ID",
+    org_member_email: "org member email",
+    user_id: "user ID",
+    connected_account_id: "connected account ID",
+    session_id: "session identifier",
+    request_id: "request ID",
+    trace_id: "trace ID",
+    route: "route",
+    error: "error context",
+  };
+
+  for (const [key, reason] of Object.entries(privateFieldReasons)) {
+    if (debugFields[key as keyof DebugFields]) {
+      reasons.push(reason);
+    }
+  }
+
   let route: IssueRoute = "default";
 
-  if (/\b(auth|oauth|connected account|connection|token|scope|permission|401|403)\b/i.test(normalized)) {
+  const fieldText = Object.values(debugFields).join(" ").toLowerCase();
+  const routeText = `${normalized} ${fieldText}`;
+
+  if (/\b(auth|oauth|connected account|connection|token|scope|permission|401|403)\b/i.test(routeText)) {
     route = "auth";
-  } else if (/\b(billing|invoice|subscription|payment|stripe|refund|plan)\b/i.test(normalized)) {
+  } else if (/\b(billing|invoice|subscription|payment|stripe|refund|plan)\b/i.test(routeText)) {
     route = "billing";
-  } else if (/\b(datadog|logs?|trace|5\d\d|latency|timeout|incident|production|staging)\b/i.test(normalized)) {
+  } else if (/\b(datadog|logs?|trace|5\d\d|latency|timeout|incident|production|staging)\b/i.test(routeText)) {
     route = "infra";
-  } else if (/\b(metabase|dashboard|query|analytics|database|org_|user_|session)\b/i.test(normalized)) {
+  } else if (/\b(metabase|dashboard|query|analytics|database|org_|user_|session)\b/i.test(routeText)) {
     route = "diagnostics";
   }
 
-  const requiresPrivateDiagnostics = reasons.length > 0;
+  const requiresPrivateDiagnostics = new Set(reasons).size > 0;
   const staffUserIds = unique([
     ...config.defaultStaffUserIds,
     ...routeStaff(route),
@@ -83,7 +109,7 @@ export const classifyPrivacy = (message: string): PrivacyDecision => {
   return {
     route,
     requiresPrivateDiagnostics,
-    reasons,
+    reasons: Array.from(new Set(reasons)),
     staffUserIds,
   };
 };

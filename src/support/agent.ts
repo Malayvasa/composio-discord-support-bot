@@ -1,6 +1,7 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText, stepCountIs, type ModelMessage, type ToolSet } from "ai";
 import { config } from "../config.js";
+import { formatDebugFields, type DebugFields } from "./debug-fields.js";
 import { loadRunbooks } from "./runbooks.js";
 
 let runbookCache: Promise<string> | undefined;
@@ -18,6 +19,7 @@ export interface SupportTurnInput {
   tools?: ToolSet;
   composioSessionId?: string;
   composioUserId?: string;
+  debugFields?: DebugFields;
 }
 
 const buildSystemPrompt = async (mode: "public" | "private") => {
@@ -45,6 +47,8 @@ Your job:
 - Customers do not connect internal tools. Internal tools are connected to the configured support-team Composio session.
 - If diagnostics tools are unavailable or unconnected, say so and continue with runbook-based guidance.
 - Escalate production 5xxs, security/billing issues, data integrity concerns, and repeated incidents.
+- Treat @debug fields as optional clues, not a required form. Use whatever is present.
+- If more information would materially improve the next diagnostic step, ask for the smallest useful clue and say where to find it.
 
 Mode:
 ${modeInstructions}
@@ -68,6 +72,7 @@ export const runSupportAgent = async ({
   tools,
   composioSessionId,
   composioUserId,
+  debugFields,
 }: SupportTurnInput) => {
   const system = await buildSystemPrompt(mode);
 
@@ -80,6 +85,9 @@ export const runSupportAgent = async ({
         `Discord message URL: ${discordMessageUrl}`,
         composioUserId ? `Composio support user ID: ${composioUserId}` : "",
         composioSessionId ? `Composio support session ID: ${composioSessionId}` : "",
+        "",
+        "Parsed optional @debug fields:",
+        formatDebugFields(debugFields ?? {}),
         "",
         "Recent Discord context:",
         discordContext,

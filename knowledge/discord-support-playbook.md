@@ -9,6 +9,14 @@ Triage every message into one of these buckets:
 - Incident: collect impact, status codes, route, environment, and time window.
 - Feature request: summarize desired outcome and create or suggest a ticket.
 
+Debug info format:
+
+- Treat `@key: value` lines as optional clues, not required fields.
+- Start investigating with partial context when there is enough signal.
+- Ask for more only when the next step needs it.
+- Tell the user where to find the missing clue.
+- Prefer a bounded time window or request/trace ID before broad log searches.
+
 Privacy rule:
 
 - Public Discord is for triage and safe guidance only.
