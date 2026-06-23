@@ -63,7 +63,10 @@ export const classifyPrivacy = (
     [/\b[a-f0-9]{24,32}\b/i, "trace-like hexadecimal ID"],
     [/\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b/i, "UUID"],
     [/\b[\w.+-]+@[\w.-]+\.[a-z]{2,}\b/i, "email address"],
-    [/\b(datadog|metabase|logs?|dashboard|database query)\b/i, "private diagnostics request"],
+    [
+      /\b(datadog|metabase|database query|internal logs?|composio logs?|check (?:the )?logs?|look (?:at|up).{0,24}logs?)\b/i,
+      "private diagnostics request",
+    ],
   ];
 
   for (const [pattern, reason] of privateChecks) {
