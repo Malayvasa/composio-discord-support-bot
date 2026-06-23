@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  MessageFlags,
   type Client,
   type Message,
   type TextBasedChannel,
@@ -276,12 +277,14 @@ const sendLongReply = async (message: Message, text: string) => {
   await message.reply({
     content: chunks.shift() ?? "I could not produce a response.",
     allowedMentions: { repliedUser: false },
+    flags: MessageFlags.SuppressEmbeds,
   });
 
   for (const chunk of chunks) {
     await channel.send({
       content: chunk,
       allowedMentions: { users: [] },
+      flags: MessageFlags.SuppressEmbeds,
     });
   }
 };
@@ -300,6 +303,7 @@ const sendLongChannelMessage = async (
     await channel.send({
       content: chunk,
       allowedMentions: { users: [] },
+      flags: MessageFlags.SuppressEmbeds,
     });
   }
 };
@@ -341,6 +345,7 @@ export const registerSupportListeners = (
     const thinking = await message.reply({
       content: "Looking into this...",
       allowedMentions: { repliedUser: false },
+      flags: MessageFlags.SuppressEmbeds,
     });
 
     try {
@@ -362,12 +367,13 @@ export const registerSupportListeners = (
         const threadUrl = await getLatestPrivateThreadUrl(message);
 
         if (threadUrl) {
-          await thinking.edit(
-            [
+          await thinking.edit({
+            content: [
               "I opened a private investigation thread for this case.",
               `Please continue there so the diagnostic context stays together: ${threadUrl}`,
-            ].join("\n")
-          );
+            ].join("\n"),
+            flags: MessageFlags.SuppressEmbeds,
+          });
           return;
         }
       }
@@ -387,13 +393,14 @@ export const registerSupportListeners = (
         const staffMentions = formatStaffMentions(decision.staffUserIds);
         latestPrivateThreadByChannelId.set(message.channel.id, threadUrl);
 
-        await thinking.edit(
-          [
+        await thinking.edit({
+          content: [
             "This may involve private account, org, log, or diagnostics data.",
             `I opened a private staff investigation thread: ${threadUrl}`,
             "I will keep public updates sanitized.",
-          ].join("\n")
-        );
+          ].join("\n"),
+          flags: MessageFlags.SuppressEmbeds,
+        });
 
         const attachments = await collectSupportAttachments(message);
 
@@ -416,6 +423,7 @@ export const registerSupportListeners = (
         await thread.send({
           content: privateStartMessage,
           allowedMentions: { users: decision.staffUserIds },
+          flags: MessageFlags.SuppressEmbeds,
         });
 
         const supportSession = await sessions.getSupportSession();
@@ -473,22 +481,25 @@ export const registerSupportListeners = (
         allowedMentions: shouldMentionStaff
           ? { users: decision.staffUserIds }
           : { users: [] },
+        flags: MessageFlags.SuppressEmbeds,
       });
 
       for (const chunk of chunks) {
         await channel.send({
           content: chunk,
           allowedMentions: { users: [] },
+          flags: MessageFlags.SuppressEmbeds,
         });
       }
     } catch (error) {
       console.error("[discord] failed to process support message", error);
-      await thinking.edit(
-        [
+      await thinking.edit({
+        content: [
           "I could not safely start the private diagnostics flow, so I did not run internal tool checks.",
           "Please ask a support admin to verify private thread permissions and staff routing env vars.",
-        ].join("\n")
-      );
+        ].join("\n"),
+        flags: MessageFlags.SuppressEmbeds,
+      });
     }
   });
 };
