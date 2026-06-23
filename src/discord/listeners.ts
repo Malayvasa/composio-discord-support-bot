@@ -25,6 +25,8 @@ import {
 const isPrivateThread = (message: Message) =>
   message.channel.type === ChannelType.PrivateThread;
 
+const latestPrivateThreadByChannelId = new Map<string, string>();
+
 const isPublicThread = (message: Message) =>
   message.channel.type === ChannelType.PublicThread ||
   message.channel.type === ChannelType.AnnouncementThread;
@@ -113,6 +115,11 @@ const isLikelyNonSupportPost = (message: Message, customerMessage: string) => {
     text
   );
 };
+
+const isGenericDiagnosticsFollowup = (message: string) =>
+  /^(what can you tell me|what do you see|any update|update\??|can you check|check this|continue|go on|what happened|thoughts\??)\??$/i.test(
+    message.trim()
+  );
 
 const shouldTagStaff = (
   message: Message,
@@ -288,6 +295,25 @@ export const registerSupportListeners = (
         hasAttachments,
       });
 
+      if (
+        !isPrivateThread(message) &&
+        !decision.requiresPrivateDiagnostics &&
+        config.privateDiagnosticsChannelId === message.channel.id &&
+        isGenericDiagnosticsFollowup(latestCustomerMessage)
+      ) {
+        const threadUrl = latestPrivateThreadByChannelId.get(message.channel.id);
+
+        if (threadUrl) {
+          await thinking.edit(
+            [
+              "I opened a private investigation thread for this case.",
+              `Please continue there so the diagnostic context stays together: ${threadUrl}`,
+            ].join("\n")
+          );
+          return;
+        }
+      }
+
       if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
         const diagnosticsChannel = await getPrivateDiagnosticsChannel(
           client,
@@ -301,6 +327,7 @@ export const registerSupportListeners = (
         );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
         const staffMentions = formatStaffMentions(decision.staffUserIds);
+        latestPrivateThreadByChannelId.set(message.channel.id, threadUrl);
 
         await thinking.edit(
           [

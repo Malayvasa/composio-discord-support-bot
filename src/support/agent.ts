@@ -56,6 +56,7 @@ const rewritePrivateStaffNote = async (answer: string, model?: string) => {
       "Do not say 'ask customer for 1 item', 'unblocks everything', or other planning labels.",
       "If the draft asks for multiple customer details, keep only the most important one.",
       "Avoid phrases like 'Datadog query', 'Metabase query', 'internal logs', or raw IDs unless they were supplied by the user and are necessary.",
+      "If request IDs are already present, do not ask for more customer details unless the draft says the request-ID lookup was inconclusive or unavailable.",
       "A reported @toolkit value is the customer's failing toolkit. Do not tell staff to enable that provider toolkit for debugging.",
       "Datadog and Metabase are internal Composio observability tools for checking Composio-side execution and account state.",
     ].join("\n"),
@@ -150,6 +151,7 @@ Your job:
 - If docs search/fetch tools are unavailable, say the answer is based on loaded runbooks and ask staff to verify docs when the detail is product-specific.
 - Do not claim "I will escalate" unless a tool or workflow actually created an escalation. If escalation is needed but not created, say "this needs staff action" and provide an evidence bundle.
 - Treat @debug fields as optional clues, not a required form. Use whatever is present.
+- If request IDs are present, use them as the primary diagnostic clue. Do not ask the customer for payload JSON, screenshots, or another identifier before checking the exact execution or saying that the lookup is unavailable.
 - If more information would materially improve the next diagnostic step, ask for the smallest useful clue and say where to find it.
 - If the post is off-topic, hiring, promotional, or social rather than a support request, do not troubleshoot. Reply only with a brief redirect if an explicit reply is required.
 
