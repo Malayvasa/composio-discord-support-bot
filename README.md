@@ -1,10 +1,11 @@
-# Composio Discord Support Bot
+# Eve + Composio Discord Support Bot
 
-A Discord customer-support bot example built with Composio Sessions.
+A Discord customer-support bot example built with Composio Sessions, AI SDK 7,
+and Eve-ready agent dependencies.
 
 It shows how to:
 
-- Use `composio.create(userId)` and `session.tools()`.
+- Use `composio.create(userId)` for a support-team tool session.
 - Keep public Discord replies separate from private support diagnostics.
 - Run private diagnostics through a support-team Composio user.
 - Use public docs search for product questions and private tool access for sensitive debugging.
@@ -13,13 +14,18 @@ It shows how to:
 ## Main Pattern
 
 ```ts
-const composio = new Composio({ provider: new VercelProvider() });
+const composio = new Composio({ apiKey: process.env.COMPOSIO_API_KEY });
 const session = await composio.create("support-team", {
   toolkits: {
     enable: ["composio_search", "datadog", "metabase"],
   },
 });
-const tools = await session.tools();
+
+// The bot exposes AI SDK 7 tools that call:
+const matches = await session.search({ query: "search Composio docs" });
+await session.execute(matches.results[0].primaryToolSlugs[0], {
+  query: "site:docs.composio.dev sessions",
+});
 ```
 
 ## How It Works
