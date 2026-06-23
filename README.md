@@ -97,48 +97,23 @@ PRIVATE_DIAGNOSTICS_CHANNEL_ID=345678901234567890
 
 ```mermaid
 flowchart TD
-  A["Discord message received"] --> B{"Should bot respond?"}
-  B -->|No| Z["Ignore"]
-  B -->|Yes| C{"Message has text or attachments?"}
-  C -->|No| C1["Ask for issue details and useful IDs"]
-  C -->|Yes| D["Send typing / Looking into this..."]
-  D --> E["Parse message"]
-  E --> E1["Clean command or mention"]
-  E --> E2["Extract debug fields: request_id, log_id, org_id, user_id, toolkit, error"]
-  E --> E3["Detect attachments"]
-  E --> F["Classify privacy and route"]
-  F --> G{"Needs private diagnostics?"}
+  A["Customer posts in Discord"] --> B["Parse message, debug fields, and attachments"]
+  B --> C{"Private data or diagnostics needed?"}
 
-  G -->|No| H{"Generic follow-up in diagnostics channel?"}
-  H -->|Yes, existing private thread| H1["Redirect user to latest private thread"]
-  H -->|No| I["Build public context from recent Discord messages"]
-  I --> J["Create or reuse public docs Composio session"]
-  J --> K["Run public support agent"]
-  K --> K1["Load runbooks"]
-  K --> K2["Use public docs search only when helpful"]
-  K --> K3["Rewrite to short public reply"]
-  K3 --> L["Edit Discord reply with embeds suppressed"]
-  L --> M{"Strong staff tag signal?"}
-  M -->|Yes| M1["Mention routed staff in public reply"]
-  M -->|No| M2["No staff mention"]
+  C -->|No| D["Public support path"]
+  D --> E["Load runbooks + optional public docs search"]
+  E --> F["Post short public reply"]
 
-  G -->|Yes| P["Fetch private diagnostics channel"]
-  P --> Q{"Can create private thread and add staff?"}
-  Q -->|No| Q1["Fail closed: do not run internal tools"]
-  Q -->|Yes| R["Create private thread and add routed staff"]
-  R --> S["Post compact private handoff"]
-  S --> S1["Public message URL"]
-  S --> S2["Why private and route"]
-  S --> S3["Triggering report, truncated"]
-  S --> S4["Debug fields and attachment metadata"]
-  S --> T["Create or reuse support-team Composio session"]
-  T --> U["Run private support agent"]
-  U --> U1["Load runbooks"]
-  U --> U2["Fetch Composio tool log when log_id is present"]
-  U --> U3["Use configured private tools only when helpful"]
-  U --> U4["Rewrite to customer-facing private update"]
-  U4 --> V["Post private answer with embeds suppressed"]
-  R --> W["Public channel gets sanitized thread link only"]
+  C -->|Yes| G["Private diagnostics path"]
+  G --> H["Create private staff thread"]
+  H --> I["Post compact case handoff"]
+  I --> J["Use support-team Composio session"]
+  J --> K["Run private tools when useful"]
+  K --> L["Post customer-safe private update"]
+
+  H --> M["Public channel gets sanitized thread link only"]
+  G --> N{"Thread/staff setup fails?"}
+  N -->|Yes| O["Fail closed; no internal tools run"]
 ```
 
 In short:
