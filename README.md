@@ -253,59 +253,6 @@ The support prompt tells the agent to prefer official Composio docs, search `doc
 
 Keep internal tools such as Datadog, Metabase, logs, dashboards, account lookups, and database queries out of `PUBLIC_DOCS_TOOLKITS`. Those belong in `COMPOSIO_TOOLKITS` and only run in private diagnostics threads.
 
-## Offline Sanitized Support Memory
-
-This repo includes optional tooling for turning resolved Plain threads into
-privacy-safe support patterns:
-
-```txt
-knowledge/support-memory/cards.json
-```
-
-The live Discord bot does not load these cards by default. Keep the runtime
-grounded in docs, runbooks, current Discord context, and private diagnostics
-evidence. Use support-memory cards only for offline analysis or after you
-explicitly choose to wire them into your own deployment.
-
-Each card captures reusable support knowledge:
-
-- Symptoms.
-- Likely causes.
-- Fixes.
-- Evidence to ask for.
-- What not to mention.
-
-Validate checked-in cards before committing changes:
-
-```bash
-npm run validate:support-memory
-```
-
-The validator fails if cards contain emails, request IDs, org IDs, project IDs, connected account IDs, auth config IDs, API keys, UUIDs, Plain thread IDs, or non-Composio URLs.
-
-### Build Local Cards From Plain
-
-If you connect Plain for your own team, you can generate local sanitized cards:
-
-```bash
-npm run build:support-memory
-```
-
-By default, generated cards are written to `generated-support-memory/`, which is gitignored. Review those cards manually before copying any generalized pattern into `knowledge/support-memory/cards.json`.
-
-Useful settings:
-
-```txt
-SUPPORT_MEMORY_MODEL=gpt-5.5
-SUPPORT_MEMORY_OUTPUT=generated-support-memory/cards.json
-SUPPORT_MEMORY_MAX_THREADS=10
-SUPPORT_MEMORY_DAYS_BACK=30
-SUPPORT_MEMORY_PLAIN_STATUSES=DONE
-SUPPORT_MEMORY_PLAIN_VERSION=20260615_00
-SUPPORT_MEMORY_PLAIN_CONNECTED_ACCOUNT_ID=
-SUPPORT_MEMORY_PLAIN_TIMELINE_ENTRIES=40
-```
-
 ## Offline Support Eval
 
 Run an offline eval against recent Plain support issues:
@@ -345,11 +292,9 @@ EVAL_RESOLUTION_EVIDENCE_MAX_CHARS=60000
 - `src/support/agent.ts`: Support agent prompt and AI SDK call.
 - `src/support/debug-fields.ts`: Optional `@key: value` debug-field parser.
 - `src/support/privacy.ts`: Private diagnostics classifier and staff routing.
-- `src/support/support-memory.ts`: Optional offline support-memory schema and privacy checks.
 - `src/discord/listeners.ts`: Discord message handling.
 - `src/discord/private-thread.ts`: Private thread creation and staff member adds.
 - `knowledge/`: Support and diagnostics runbooks.
-- `knowledge/support-memory/cards.json`: Optional curated synthetic support-memory examples.
 - `knowledge/known-incidents-and-status.md`: Incident-first support guidance.
 - `knowledge/mcp-auth-triage.md`: MCP, OAuth, API key, and connected-account triage.
 - `knowledge/support-response-quality.md`: Response quality and escalation-language rules.

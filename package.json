@@ -6,13 +6,11 @@
   "description": "A Composio Sessions example for a Discord customer support bot with bring-your-own diagnostics tools.",
   "scripts": {
     "connect:toolkits": "tsx scripts/connect-support-toolkits.ts",
-    "build:support-memory": "tsx scripts/build-support-memory.ts",
     "dev": "tsx watch src/index.ts",
     "eval:support": "tsx scripts/evaluate-support-forum.ts",
     "eval:support-forum": "tsx scripts/evaluate-support-forum.ts",
     "start": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit",
-    "validate:support-memory": "tsx scripts/validate-support-memory.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.74",
