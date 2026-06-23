@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "generatedAt": "2026-06-23T00:00:00.000Z",
+  "source": "curated",
+  "cards": [
+    {
+      "id": "card_api_key_cli_user_key",
+      "title": "CLI login fails with project API key",
+      "summary": "When `composio link`, CLI login, or MCP setup fails with 401 Invalid API key and the visible key prefix is `ak_...`, the likely issue is that the user supplied a project API key where the CLI/user-auth flow expects a User API Key.",
+      "symptoms": [
+        "`composio link` fails with 401 Invalid API key",
+        "Error mentions CLI, MCP login, or local auth setup",
+        "The redacted key preview starts with `ak_...`",
+        "The user says they copied an API key from project settings"
+      ],
+      "likelyCauses": [
+        "A project API key is being used for a user-level CLI or MCP login flow",
+        "The current key was rotated, revoked, truncated, or copied with extra whitespace",
+        "`AUTH_CONFIG_ID` may be an integration ID instead of the `ac_...` auth config ID"
+      ],
+      "fixes": [
+        "Use the User API Key for CLI and MCP login flows; it should use the user-key surface rather than the project-key surface",
+        "Use project API keys for project REST API calls that expect project authentication",
+        "Keep `AUTH_CONFIG_ID` as the `ac_...` auth config ID, not the integration ID",
+        "If the retry still fails, ask for the new request ID from the CLI error"
+      ],
+      "whenToUse": [
+        "Use when the support request mentions CLI login, `composio link`, MCP auth, or local setup with a 401 Invalid API key",
+        "Use when the supplied redacted key prefix is `ak_...` and the requested operation is user-level auth"
+      ],
+      "requiredEvidence": [
+        "Command or surface being used, such as CLI, MCP, REST API, or dashboard",
+        "Redacted key prefix only, never the full key",
+        "Request ID if the suggested key-type fix does not work"
+      ],
+      "avoidMentioning": [
+        "Do not ask for the full API key",
+        "Do not ask for unrelated provider headers before addressing key type",
+        "Do not mention unrelated toolkits or prior cases"
+      ],
+      "docsUrls": [],
+      "tags": [
+        "api-key",
+        "cli",
+        "mcp",
+        "401",
+        "invalid-api-key",
+        "composio-link",
+        "auth-config-id"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "card_pipedrive_company_domain_slug",
+      "title": "Pipedrive connection fails when company domain is a full URL",
+      "summary": "For Pipedrive auth/configuration, the company domain field should be the company slug only, not a full URL and not a hostname with `.pipedrive.com`.",
+      "symptoms": [
+        "Pipedrive connection or remote tool execution fails with SSRF or DNS resolution errors",
+        "Error says DNS resolution failed for `https` or hostname verification failed",
+        "The dashboard may show the connected account as active while remote execution fails"
+      ],
+      "likelyCauses": [
+        "The company domain field contains a full URL or full hostname instead of the Pipedrive company slug",
+        "The URL parser treats part of the scheme or malformed host as the hostname, triggering SSRF protection"
+      ],
+      "fixes": [
+        "Set the Pipedrive company domain field to the slug only, for example `acme`",
+        "Do not include `https://`, `http://`, or `.pipedrive.com` in the company domain field",
+        "Retry the connection or tool execution after updating the domain format"
+      ],
+      "whenToUse": [
+        "Use when Pipedrive errors mention SSRF, DNS resolution, hostname verification, or `ExternalProxy_SSRFBlocked`",
+        "Use when a customer says Pipedrive is active in the dashboard but remote execution fails"
+      ],
+      "requiredEvidence": [
+        "Sanitized domain format being entered",
+        "Request ID only if the format fix does not resolve the issue"
+      ],
+      "avoidMentioning": [
+        "Do not ask for tokens or credentials",
+        "Do not imply the exact request ID was found unless diagnostics confirm it",
+        "Do not claim a spike or platform issue from broad logs alone"
+      ],
+      "docsUrls": [],
+      "tags": [
+        "pipedrive",
+        "ssrf",
+        "dns",
+        "externalproxy_ssrfblocked",
+        "company-domain"
+      ],
+      "confidence": "high"
+    },
+    {
+      "id": "card_gmail_modify_managed_scope",
+      "title": "Gmail managed OAuth app blocks gmail.modify scope",
+      "summary": "If Google blocks a Gmail connection after adding `gmail.modify`, the issue may be scope approval on the managed app. A broader approved mail scope can be used where appropriate, or the customer can use custom Google credentials and complete Google's review.",
+      "symptoms": [
+        "Gmail OAuth shows an app blocked message",
+        "The issue appears after adding `https://www.googleapis.com/auth/gmail.modify`",
+        "The customer wants to avoid custom Google credential review"
+      ],
+      "likelyCauses": [
+        "The managed Gmail OAuth app does not have approval for the requested restricted scope",
+        "Google is enforcing verification requirements for the configured scope set"
+      ],
+      "fixes": [
+        "Use an approved managed Gmail scope if it satisfies the product need",
+        "Use custom Google OAuth credentials when the app needs scopes that require the customer's own Google review",
+        "Keep the response clear that this is a Google scope approval constraint, not a connected-account runtime failure"
+      ],
+      "whenToUse": [
+        "Use when Gmail OAuth is blocked after adding Gmail write or modify scopes",
+        "Use when the customer asks whether something changed on Composio's side for Google verification"
+      ],
+      "requiredEvidence": [
+        "Exact Gmail scopes configured",
+        "Whether the customer is using Composio-managed or custom OAuth credentials"
+      ],
+      "avoidMentioning": [
+        "Do not promise managed-app approval for a scope unless confirmed",
+        "Do not ask for logs before checking the configured scope and auth mode"
+      ],
+      "docsUrls": [
+        "https://docs.composio.dev/toolkits/gmail"
+      ],
+      "tags": [
+        "gmail",
+        "oauth",
+        "scope",
+        "gmail.modify",
+        "google-blocked"
+      ],
+      "confidence": "medium"
+    },
+    {
+      "id": "card_monday_workspace_app_install",
+      "title": "Monday OAuth requires workspace app installation",
+      "summary": "Monday may show an app-not-installed error until a Monday workspace admin installs the Composio app for the workspace. After installation, users can retry the connection.",
+      "symptoms": [
+        "Monday connection shows `App is not installed`",
+        "The error appears during integration or OAuth setup",
+        "A non-admin user is trying to authorize before workspace installation"
+      ],
+      "likelyCauses": [
+        "Monday requires the app to be installed by a workspace admin before users can authorize it",
+        "The workspace has not approved or installed the app yet"
+      ],
+      "fixes": [
+        "Ask a Monday workspace admin to install and approve the app for the workspace",
+        "Retry the Monday connection in Composio after the app is installed",
+        "If it still fails, ask for the workspace name and a fresh screenshot after the install attempt"
+      ],
+      "whenToUse": [
+        "Use when monday.com OAuth or integration setup reports that the app is not installed"
+      ],
+      "requiredEvidence": [
+        "Whether a Monday workspace admin has installed the app",
+        "Workspace name if the error persists after admin install"
+      ],
+      "avoidMentioning": [
+        "Do not ask for Monday credentials",
+        "Do not treat this as a Composio outage before checking the Monday workspace prerequisite"
+      ],
+      "docsUrls": [],
+      "tags": [
+        "monday",
+        "oauth",
+        "app-not-installed",
+        "workspace-admin"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

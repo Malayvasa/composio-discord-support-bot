@@ -7,6 +7,7 @@ import {
 } from "./attachments.js";
 import { formatDebugFields, type DebugFields } from "./debug-fields.js";
 import { loadRunbooks } from "./runbooks.js";
+import { loadRelevantSupportMemory } from "./support-memory.js";
 
 let runbookCache: Promise<string> | undefined;
 
@@ -133,6 +134,7 @@ const buildSystemPrompt = async (mode: "public" | "private") => {
 Your job:
 - Triage customer issues clearly and kindly.
 - Use the provided runbooks before using tools.
+- Use the sanitized support-memory cards as reusable patterns from reviewed support history. These cards are generalized and safe to cite as "similar support patterns"; they are not raw customer threads.
 - For product-specific support requests about Composio behavior, SDKs, CLI, MCP, OAuth, toolkits, auth configs, scopes, or provider setup, search official docs before answering unless the message is clearly social/off-topic or only requires private diagnostics.
 - Use Composio tools for docs lookup: first call COMPOSIO_SEARCH_TOOLS for "search documentation website" with known fields like "domain: docs.composio.dev", then use COMPOSIO_MULTI_EXECUTE_TOOL for the returned composio_search tools such as web search or URL fetch.
 - Keep docs lookup scoped to official Composio documentation, especially docs.composio.dev and https://docs.composio.dev/llms.txt.
@@ -191,6 +193,13 @@ export const runSupportAgent = async ({
   }
 
   const system = await buildSystemPrompt(mode);
+  const supportMemory = await loadRelevantSupportMemory(
+    [
+      customerMessage,
+      formatDebugFields(debugFields ?? {}),
+      formatAttachmentsForAgent(attachments),
+    ].join("\n")
+  );
 
   const messages: ModelMessage[] = [
     {
@@ -207,6 +216,9 @@ export const runSupportAgent = async ({
         "",
         "Discord attachments:",
         formatAttachmentsForAgent(attachments),
+        "",
+        "Relevant sanitized support-memory cards:",
+        supportMemory,
         "",
         "Recent Discord context:",
         discordContext,
