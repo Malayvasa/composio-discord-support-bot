@@ -35,10 +35,7 @@ export const shouldRespond = (client: Client, message: Message) => {
   }
 
   if (isPrivateThread(message)) {
-    return (
-      isConfiguredStaffUser(message.author.id) &&
-      message.content.trim().startsWith("!support")
-    );
+    return isConfiguredStaffUser(message.author.id);
   }
 
   if (!message.guild) {
