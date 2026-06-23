@@ -9,6 +9,7 @@ The bot listens in Discord, triages support requests, reads local Composio runbo
 - Current Composio Sessions APIs: `composio.create(userId)` and `session.tools()`.
 - A support-team identity for internal tools.
 - Public docs lookup through Composio Search.
+- Deterministic Discord actions through Composio's Discord bot toolkit where possible.
 - Bring-your-own diagnostics through configurable toolkits such as Datadog and Metabase.
 - Runbook-grounded support behavior.
 - Discord support workflows: public triage, private diagnostics threads, staff routing, and escalation summaries.
@@ -47,6 +48,8 @@ Choose your support toolkits:
 COMPOSIO_TOOLKITS=composio_search,github,linear,slack,gmail,datadog,metabase
 PUBLIC_DOCS_TOOLKITS=composio_search
 SUPPORT_SESSION_USER_ID=support-team
+DISCORDBOT_ACTIONS_ENABLED=true
+DISCORDBOT_CONNECTED_ACCOUNT_ID=
 ```
 
 Configure who gets added to private diagnostics threads:
@@ -78,6 +81,28 @@ The bot responds to:
 For production servers, set `SUPPORT_CHANNEL_IDS` so the bot only watches support channels.
 
 The bot needs Discord permissions to send messages, create private threads, and add members to private threads. If it cannot create the thread or add the right staff users, it fails closed and does not run diagnostics. Follow-up commands inside private diagnostics threads only run for configured staff users.
+
+### Discord Bot Toolkit
+
+The runtime still uses `discord.js` for gateway events, intents, reconnects, message context, typing indicators, and privacy routing. Those are application-control concerns rather than agent tools.
+
+For outbound deterministic Discord actions, the app can use Composio's `discordbot` toolkit:
+
+- `DISCORDBOT_CREATE_THREAD` for private diagnostics threads.
+- `DISCORDBOT_ADD_THREAD_MEMBER` for adding routed staff users.
+- `DISCORDBOT_CREATE_MESSAGE` for private thread messages.
+
+If a toolkit action fails before a private thread is created, the app falls back to Discord.js for safe local execution. If staff cannot be added to the private thread, diagnostics fail closed.
+
+Configure:
+
+```txt
+DISCORDBOT_ACTIONS_ENABLED=true
+DISCORDBOT_TOOL_VERSION=20260615_00
+DISCORDBOT_CONNECTED_ACCOUNT_ID=
+```
+
+`DISCORDBOT_CONNECTED_ACCOUNT_ID` is optional when Composio can resolve the active Discord bot account for `SUPPORT_SESSION_USER_ID`. Set it explicitly if your project has multiple Discord bot connections or if the runtime API key cannot infer the right one.
 
 ### Discord Forum Channels
 
@@ -219,6 +244,7 @@ EVAL_RESOLUTION_EVIDENCE_MAX_CHARS=60000
 ## Key Files
 
 - `src/composio/session.ts`: Composio Sessions setup.
+- `src/composio/discord-bot.ts`: App-controlled Discord bot toolkit wrapper.
 - `src/support/agent.ts`: Support agent prompt and AI SDK call.
 - `src/support/debug-fields.ts`: Optional `@key: value` debug-field parser.
 - `src/support/privacy.ts`: Private diagnostics classifier and staff routing.

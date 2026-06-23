@@ -27,6 +27,9 @@ const envSchema = z.object({
     .string()
     .default("composio_search,github,linear,slack,gmail,datadog,metabase"),
   PUBLIC_DOCS_TOOLKITS: z.string().default("composio_search"),
+  DISCORDBOT_ACTIONS_ENABLED: z.enum(["true", "false"]).default("true"),
+  DISCORDBOT_TOOL_VERSION: z.string().default("20260615_00"),
+  DISCORDBOT_CONNECTED_ACCOUNT_ID: z.string().optional(),
   COMPOSIO_WORKBENCH_ENABLED: z
     .enum(["true", "false"])
     .default("false"),
@@ -68,6 +71,9 @@ export const config = {
   privateThreadNamePrefix: env.PRIVATE_THREAD_NAME_PREFIX,
   composioToolkits: csv(env.COMPOSIO_TOOLKITS),
   publicDocsToolkits: csv(env.PUBLIC_DOCS_TOOLKITS),
+  discordBotActionsEnabled: env.DISCORDBOT_ACTIONS_ENABLED === "true",
+  discordBotToolVersion: env.DISCORDBOT_TOOL_VERSION,
+  discordBotConnectedAccountId: env.DISCORDBOT_CONNECTED_ACCOUNT_ID,
   composioWorkbenchEnabled: env.COMPOSIO_WORKBENCH_ENABLED === "true",
   discordContextLimit: env.DISCORD_CONTEXT_LIMIT,
   maxAgentSteps: env.MAX_AGENT_STEPS,

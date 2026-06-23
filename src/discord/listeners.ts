@@ -5,6 +5,7 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config.js";
+import type { DiscordBotToolkitClient } from "../composio/discord-bot.js";
 import type { SupportSessionManager } from "../composio/session.js";
 import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
@@ -223,7 +224,8 @@ const sendLongReply = async (message: Message, text: string) => {
 
 const sendLongChannelMessage = async (
   channel: TextBasedChannel,
-  text: string
+  text: string,
+  discordBot?: DiscordBotToolkitClient
 ) => {
   if (!isSendableChannel(channel)) {
     return;
@@ -232,6 +234,21 @@ const sendLongChannelMessage = async (
   const chunks = splitDiscordMessage(text);
 
   for (const chunk of chunks) {
+    if (discordBot?.enabled) {
+      try {
+        await discordBot.createMessage({
+          channelId: channel.id,
+          content: chunk,
+        });
+        continue;
+      } catch (error) {
+        console.warn(
+          "[discordbot] failed to send message, falling back to discord.js",
+          error
+        );
+      }
+    }
+
     await channel.send({
       content: chunk,
       allowedMentions: { users: [] },
@@ -241,7 +258,8 @@ const sendLongChannelMessage = async (
 
 export const registerSupportListeners = (
   client: Client,
-  sessions: SupportSessionManager
+  sessions: SupportSessionManager,
+  discordBot?: DiscordBotToolkitClient
 ) => {
   client.on("messageCreate", async (message) => {
     if (!shouldRespond(client, message)) {
@@ -297,7 +315,8 @@ export const registerSupportListeners = (
           message,
           decision,
           debugFields,
-          diagnosticsChannel
+          diagnosticsChannel,
+          discordBot
         );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
         const staffMentions = formatStaffMentions(decision.staffUserIds);
@@ -312,24 +331,45 @@ export const registerSupportListeners = (
 
         const attachments = await collectSupportAttachments(message);
 
-        await thread.send({
-          content: [
-            staffMentions,
-            "",
-            "Private support investigation started.",
-            `Private thread: ${threadUrl}`,
-            `Public message: ${message.url}`,
-            `Route: ${decision.route}`,
-            `Privacy reasons: ${decision.reasons.join(", ")}`,
-            "",
-            "Parsed @debug fields:",
-            formatDebugFields(debugFields),
-            "",
-            "Attachments:",
-            formatAttachmentMetadata(attachments),
-          ].join("\n"),
-          allowedMentions: { users: decision.staffUserIds },
-        });
+        const privateStartMessage = [
+          staffMentions,
+          "",
+          "Private support investigation started.",
+          `Private thread: ${threadUrl}`,
+          `Public message: ${message.url}`,
+          `Route: ${decision.route}`,
+          `Privacy reasons: ${decision.reasons.join(", ")}`,
+          "",
+          "Parsed @debug fields:",
+          formatDebugFields(debugFields),
+          "",
+          "Attachments:",
+          formatAttachmentMetadata(attachments),
+        ].join("\n");
+
+        if (discordBot?.enabled) {
+          try {
+            await discordBot.createMessage({
+              channelId: thread.id,
+              content: privateStartMessage,
+              allowedUserIds: decision.staffUserIds,
+            });
+          } catch (error) {
+            console.warn(
+              "[discordbot] failed to send private start message, falling back to discord.js",
+              error
+            );
+            await thread.send({
+              content: privateStartMessage,
+              allowedMentions: { users: decision.staffUserIds },
+            });
+          }
+        } else {
+          await thread.send({
+            content: privateStartMessage,
+            allowedMentions: { users: decision.staffUserIds },
+          });
+        }
 
         const supportSession = await sessions.getSupportSession();
         const privateAnswer = await withTypingHeartbeat(thread, () =>
@@ -346,7 +386,7 @@ export const registerSupportListeners = (
           })
         );
 
-        await sendLongChannelMessage(thread, privateAnswer);
+        await sendLongChannelMessage(thread, privateAnswer, discordBot);
         return;
       }
 
