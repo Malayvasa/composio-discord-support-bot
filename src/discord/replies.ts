@@ -27,25 +27,6 @@ export const sendLongReply = async (message: Message, text: string) => {
   }
 };
 
-export const sendLongChannelMessage = async (
-  channel: TextBasedChannel,
-  text: string
-) => {
-  if (!isSendableChannel(channel)) {
-    return;
-  }
-
-  const chunks = splitDiscordMessage(text);
-
-  for (const chunk of chunks) {
-    await channel.send({
-      content: chunk,
-      allowedMentions: { users: [] },
-      flags: MessageFlags.SuppressEmbeds,
-    });
-  }
-};
-
 export const editReplyWithLongMessage = async ({
   reply,
   channel,
@@ -80,5 +61,47 @@ export const editReplyWithLongMessage = async ({
       allowedMentions: { users: [] },
       flags: MessageFlags.SuppressEmbeds,
     });
+  }
+};
+
+export const withProgressUpdates = async <T>({
+  message,
+  states,
+  task,
+  intervalMs = 5_000,
+}: {
+  message: Message;
+  states: string[];
+  task: () => Promise<T>;
+  intervalMs?: number;
+}) => {
+  let index = 0;
+
+  const editState = async () => {
+    const content = states[Math.min(index, states.length - 1)];
+    index += 1;
+
+    try {
+      await message.edit({
+        content,
+        allowedMentions: { users: [] },
+        flags: MessageFlags.SuppressEmbeds,
+      });
+    } catch (error) {
+      console.warn("[discord] failed to update progress message", error);
+    }
+  };
+
+  await editState();
+  const interval = setInterval(() => {
+    if (index < states.length) {
+      void editState();
+    }
+  }, intervalMs);
+
+  try {
+    return await task();
+  } finally {
+    clearInterval(interval);
   }
 };

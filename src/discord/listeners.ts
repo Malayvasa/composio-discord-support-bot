@@ -29,9 +29,21 @@ import {
 } from "./private-diagnostics.js";
 import {
   editReplyWithLongMessage,
-  sendLongChannelMessage,
   sendLongReply,
+  withProgressUpdates,
 } from "./replies.js";
+
+const publicProgressStates = [
+  "Looking into this...\n\nStep: Reading the support request.",
+  "Looking into this...\n\nStep: Checking relevant Composio knowledge.",
+  "Looking into this...\n\nStep: Drafting a short reply.",
+];
+
+const privateProgressStates = [
+  "Working on this in the private thread...\n\nStep: Reviewing the case summary.",
+  "Working on this in the private thread...\n\nStep: Checking available support tools.",
+  "Working on this in the private thread...\n\nStep: Writing a customer-safe update.",
+];
 
 export const registerSupportListeners = (
   client: Client,
@@ -150,22 +162,38 @@ export const registerSupportListeners = (
           flags: MessageFlags.SuppressEmbeds,
         });
 
-        const supportSession = await sessions.getSupportSession();
-        const privateAnswer = await withTypingHeartbeat(thread, () =>
-          runSupportAgent({
-            customerMessage: latestCustomerMessage,
-            discordContext: privateCaseContext,
-            discordMessageUrl: message.url,
-            mode: "private",
-            tools: supportSession.tools,
-            composioSessionId: supportSession.sessionId,
-            composioUserId: supportSession.userId,
-            debugFields,
-            attachments,
-          })
-        );
+        const privateProgress = await thread.send({
+          content: privateProgressStates[0],
+          allowedMentions: { users: [] },
+          flags: MessageFlags.SuppressEmbeds,
+        });
 
-        await sendLongChannelMessage(thread, privateAnswer);
+        const supportSession = await sessions.getSupportSession();
+        const privateAnswer = await withProgressUpdates({
+          message: privateProgress,
+          states: privateProgressStates,
+          task: () =>
+            withTypingHeartbeat(thread, () =>
+              runSupportAgent({
+                customerMessage: latestCustomerMessage,
+                discordContext: privateCaseContext,
+                discordMessageUrl: message.url,
+                mode: "private",
+                tools: supportSession.tools,
+                composioSessionId: supportSession.sessionId,
+                composioUserId: supportSession.userId,
+                debugFields,
+                attachments,
+              })
+            ),
+        });
+
+        await editReplyWithLongMessage({
+          reply: privateProgress,
+          channel: thread,
+          text: privateAnswer,
+          allowedUserMentions: [],
+        });
         return;
       }
 
@@ -175,19 +203,24 @@ export const registerSupportListeners = (
         : config.publicDocsToolkits.length > 0
           ? await sessions.getPublicDocsSession()
           : undefined;
-      const answer = await withTypingHeartbeat(channel, () =>
-        runSupportAgent({
-          customerMessage: latestCustomerMessage,
-          discordContext,
-          discordMessageUrl: message.url,
-          mode: isPrivateThread(message) ? "private" : "public",
-          tools: supportSession?.tools,
-          composioSessionId: supportSession?.sessionId,
-          composioUserId: supportSession?.userId,
-          debugFields,
-          attachments,
-        })
-      );
+      const answer = await withProgressUpdates({
+        message: thinking,
+        states: isPrivateThread(message) ? privateProgressStates : publicProgressStates,
+        task: () =>
+          withTypingHeartbeat(channel, () =>
+            runSupportAgent({
+              customerMessage: latestCustomerMessage,
+              discordContext,
+              discordMessageUrl: message.url,
+              mode: isPrivateThread(message) ? "private" : "public",
+              tools: supportSession?.tools,
+              composioSessionId: supportSession?.sessionId,
+              composioUserId: supportSession?.userId,
+              debugFields,
+              attachments,
+            })
+          ),
+      });
 
       const shouldMentionStaff = shouldTagStaff(
         message,
