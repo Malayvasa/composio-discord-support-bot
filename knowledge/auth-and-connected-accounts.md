@@ -4,7 +4,8 @@ For customer support, separate the Discord customer from the Composio support id
 
 - The Discord customer reports the issue.
 - The support bot uses the configured support-team Composio user ID.
-- Internal tools such as Datadog, Metabase, Slack, Linear, and GitHub should already be connected to that support identity.
+- Internal observability tools such as Datadog and Metabase should already be connected to that support identity.
+- A reported toolkit like `github` or `gmail` usually means the customer's app was calling that Composio toolkit. It does not mean the support bot needs that provider toolkit enabled to diagnose the issue.
 
 If a tool reports missing auth:
 
@@ -20,6 +21,12 @@ For customer-owned toolkits, such as a customer's Gmail or GitHub in their own a
 - Connected account ID if known.
 - Auth config ID only when debugging custom auth.
 - Error text and timestamp.
+
+Use Datadog and Metabase to inspect Composio-side execution logs, traces,
+connected-account state, and operational history for customer-owned toolkit
+failures. Only suggest enabling provider toolkits such as GitHub, Gmail, Slack,
+or Linear on the support identity when the support workflow needs to perform
+provider actions itself, such as creating an issue or sending a notification.
 
 Before suggesting a fix, classify the auth path:
 

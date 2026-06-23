@@ -15,6 +15,30 @@ const getRunbooks = () => {
   return runbookCache;
 };
 
+const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
+  let polished = answer.trim();
+
+  if (mode === "private") {
+    polished = polished
+      .replace(/\s*\((?:ask|ask the) customer for\s+1\s+item\)/gi, "")
+      .replace(/\b(?:ask|ask the) customer for\s+1\s+item\b/gi, "missing detail")
+      .replace(/\bAsk them for the\b/g, "Please ask the customer for the")
+      .replace(
+        /\benable the ([a-z0-9_-]+) toolkit for connected-account-level debugging\b/gi,
+        "use Datadog or Metabase to inspect the Composio tool execution and connected-account state"
+      )
+      .replace(
+        /\benable the ([a-z0-9_-]+) toolkit for deeper tool diagnostics\b/gi,
+        "use Datadog or Metabase to inspect the Composio tool execution and connected-account state"
+      )
+      .replace(/^#{1,3}\s*Likely root causes to validate\s*$/gim, "### Likely cause")
+      .replace(/^#{1,3}\s*Staff action \/ next diagnostic step\s*$/gim, "### Next step")
+      .replace(/^#{1,3}\s*Evidence bundle\s*$/gim, "### Evidence");
+  }
+
+  return polished.trim();
+};
+
 export interface SupportTurnInput {
   customerMessage: string;
   discordContext: string;
@@ -34,6 +58,9 @@ const buildSystemPrompt = async (mode: "public" | "private") => {
     mode === "private"
       ? `You are in a private staff-only diagnostics thread.
 - You may use Composio tools when they help diagnose the issue.
+- Datadog and Metabase are internal Composio observability tools for checking customer-facing Composio failures across any reported toolkit.
+- A debug field like @toolkit: github means the customer's Composio app was calling the GitHub toolkit. It does not mean this support bot needs the GitHub toolkit enabled to investigate.
+- Do not tell staff to enable the reported customer toolkit for debugging unless the task explicitly requires the support bot to perform provider actions itself.
 - Still summarize findings safely and avoid secrets, raw tokens, unrelated customer data, and broad data dumps.`
       : `You are in a public customer-visible Discord surface.
 - Do not use internal diagnostics or private customer/account/log data.
@@ -58,6 +85,8 @@ Your job:
 - Ask for missing identifiers before doing broad diagnostics.
 - Do not expose secrets, credentials, tokens, raw unrelated logs, or private customer data.
 - Customers do not connect internal tools. Internal tools are connected to the configured support-team Composio session.
+- Treat @toolkit as the customer-reported failing toolkit, not as a list of tools this support bot must have enabled.
+- Use Datadog and Metabase as internal observability for Composio tool executions, connected-account state, traces, and operational history, including issues involving customer toolkits such as GitHub, Gmail, Slack, or Linear.
 - If diagnostics tools are unavailable or unconnected, say so and continue with runbook-based guidance.
 - If docs search/fetch tools are unavailable, say the answer is based on loaded runbooks and ask staff to verify docs when the detail is product-specific.
 - Do not claim "I will escalate" unless a tool or workflow actually created an escalation. If escalation is needed but not created, say "this needs staff action" and provide an evidence bundle.
@@ -72,9 +101,10 @@ When responding:
 - Be concise. Public replies should usually be 2-5 lines. Private diagnostics should use short sections only when useful.
 - Start with the likely issue or next step.
 - If you used tools, summarize what you checked.
-- If you need more information, ask for one specific item unless several are truly blocking.
+- If you need more information, ask for one specific detail in plain staff language, for example "Please ask the customer for the exact owner/repo." Never write planning labels like "ask customer for 1 item."
 - If staff action is needed, include an evidence bundle that a teammate can act on without promising that you created an escalation.
 - Do not paste long raw logs or file contents back into Discord. Summarize the relevant signal and cite the attachment name.
+- Do not expose raw tool-call, schema, or parameter errors unless the operator must act on that exact error. Prefer "I could not confirm this in internal logs yet" over raw diagnostics-tool failure text.
 
 Runbooks:
 ${runbooks}`;
@@ -127,5 +157,5 @@ export const runSupportAgent = async ({
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
 
-  return result.text.trim();
+  return polishSupportAnswer(result.text, mode);
 };

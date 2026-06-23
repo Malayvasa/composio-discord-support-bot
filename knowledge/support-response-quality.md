@@ -26,6 +26,22 @@ Next step:
 Evidence:
 ```
 
+Private diagnostic notes are staff notes, not model plans. Do not use internal
+planning labels such as "ask customer for 1 item", "validate root causes", or
+"next diagnostic step" when a normal support sentence would be clearer.
+
+Good:
+
+```txt
+Missing detail: exact `owner/repo` from the failed tool call.
+```
+
+Bad:
+
+```txt
+Likely root causes to validate (ask customer for 1 item)
+```
+
 For off-topic, hiring, promotional, or social posts in support forums, do not troubleshoot. If explicitly asked to reply, keep it to one line and redirect to the right place.
 
 When asking for diagnostics, prefer targeted questions:
@@ -34,6 +50,10 @@ When asking for diagnostics, prefer targeted questions:
 - If several details are needed, cap at 3 to 5.
 - Tell the user where to find the detail.
 - Ask users to redact secrets, tokens, API keys, and raw private data.
+
+Do not paste raw internal tool errors, schema mismatches, or parameter errors
+into Discord unless a staff operator needs that exact implementation detail to
+fix the support bot. Summarize the impact instead.
 
 High-value support details:
 

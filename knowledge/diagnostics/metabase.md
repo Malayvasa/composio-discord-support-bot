@@ -2,6 +2,11 @@
 
 Use Metabase for support-safe operational lookups such as account state, session state, connected account status, usage patterns, and historical counts.
 
+Metabase is internal Composio support analytics. It can help diagnose failures
+for any customer-reported toolkit by checking Composio-side account and
+execution state. The reported `@toolkit` field is the failing customer toolkit,
+not a requirement to enable that toolkit for the support bot.
+
 Metabase diagnostics must only run in a private staff diagnostics thread. Do not expose private account rows, customer data, or raw query results in public Discord.
 
 Good Metabase questions:
