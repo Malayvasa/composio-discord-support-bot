@@ -1,352 +1,37 @@
-import {
-  ChannelType,
-  MessageFlags,
-  type Client,
-  type Message,
-  type TextBasedChannel,
-} from "discord.js";
+import { MessageFlags, type Client } from "discord.js";
 import { config } from "../config.js";
 import type { SupportSessionManager } from "../composio/session.js";
 import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
+import { collectSupportAttachments } from "../support/attachments.js";
+import { parseDebugFields } from "../support/debug-fields.js";
+import { classifyPrivacy } from "../support/privacy.js";
+import { isSendableChannel, withTypingHeartbeat } from "../utils/discord.js";
 import {
-  collectSupportAttachments,
-  formatAttachmentMetadata,
-} from "../support/attachments.js";
-import { formatDebugFields, parseDebugFields } from "../support/debug-fields.js";
-import { classifyPrivacy, isConfiguredStaffUser } from "../support/privacy.js";
+  buildDiscordContext,
+  buildPrivateCaseContext,
+} from "./support-context.js";
 import {
-  formatMessageForContext,
-  isFetchableMessageChannel,
-  isSendableChannel,
-  splitDiscordMessage,
-  withTypingHeartbeat,
-} from "../utils/discord.js";
-
-const isPrivateThread = (message: Message) =>
-  message.channel.type === ChannelType.PrivateThread;
-
-const latestPrivateThreadByChannelId = new Map<string, string>();
-
-const isPublicThread = (message: Message) =>
-  message.channel.type === ChannelType.PublicThread ||
-  message.channel.type === ChannelType.AnnouncementThread;
-
-const getParentChannelId = (message: Message) =>
-  "parentId" in message.channel ? message.channel.parentId : undefined;
-
-const getThreadOwnerId = (message: Message) =>
-  "ownerId" in message.channel ? message.channel.ownerId : undefined;
-
-const getChannelName = (message: Message) =>
-  "name" in message.channel && typeof message.channel.name === "string"
-    ? message.channel.name
-    : undefined;
-
-const isAllowedForumThreadOwner = (message: Message) => {
-  if (!isPublicThread(message) || config.supportForumAuthorIds.length === 0) {
-    return true;
-  }
-
-  const ownerId = getThreadOwnerId(message);
-  return ownerId ? config.supportForumAuthorIds.includes(ownerId) : false;
-};
-
-const shouldRespond = (client: Client, message: Message) => {
-  if (message.author.bot) {
-    return false;
-  }
-
-  if (isPrivateThread(message)) {
-    return (
-      isConfiguredStaffUser(message.author.id) &&
-      message.content.trim().startsWith("!support")
-    );
-  }
-
-  if (!message.guild) {
-    return true;
-  }
-
-  const mentioned = client.user ? message.mentions.has(client.user) : false;
-  const parentChannelId = getParentChannelId(message);
-  const inConfiguredSupportSurface =
-    config.supportChannelIds.length === 0 ||
-    config.supportChannelIds.includes(message.channel.id) ||
-    (parentChannelId
-      ? config.supportChannelIds.includes(parentChannelId)
-      : false);
-  const inRestrictedForumThread =
-    isPublicThread(message) &&
-    typeof parentChannelId === "string" &&
-    config.supportChannelIds.includes(parentChannelId) &&
-    !isAllowedForumThreadOwner(message);
-
-  if (inRestrictedForumThread) {
-    return false;
-  }
-
-  const inSupportChannel = inConfiguredSupportSurface;
-  const command = message.content.trim().startsWith("!support");
-
-  return mentioned || command || inSupportChannel;
-};
-
-const isExplicitRequest = (client: Client, message: Message) => {
-  const mentioned = client.user ? message.mentions.has(client.user) : false;
-  const command = message.content.trim().startsWith("!support");
-
-  return mentioned || command;
-};
-
-const isAutoForumPost = (message: Message) => {
-  const parentChannelId = getParentChannelId(message);
-
-  return (
-    isPublicThread(message) &&
-    typeof parentChannelId === "string" &&
-    config.supportChannelIds.includes(parentChannelId)
-  );
-};
-
-const isLikelyNonSupportPost = (message: Message, customerMessage: string) => {
-  const text = `${getChannelName(message) ?? ""} ${customerMessage}`.toLowerCase();
-
-  return /\b(hiring|job application|job specialist|remote role|rlhf|we'?re hiring|approved to be judge|hackathon judge)\b/i.test(
-    text
-  );
-};
-
-const isGenericDiagnosticsFollowup = (message: string) =>
-  /^(what can you tell me|what do you see|what is happening|what's happening|any update|update\??|can you check|check this|continue|go on|what happened|thoughts\??)\??$/i.test(
-    message.trim()
-  );
-
-const shouldTagStaff = (
-  message: Message,
-  customerMessage: string,
-  answer: string,
-  staffUserIds: string[]
-) => {
-  if (staffUserIds.length === 0 || isPrivateThread(message)) {
-    return false;
-  }
-
-  const text = `${getChannelName(message) ?? ""} ${customerMessage} ${answer}`.toLowerCase();
-
-  return /\b(staff action|needs staff|fully blocked|urgent|production is blocked|prod is blocked|outage|incident|security|billing|refund|frozen|cannot upgrade|can't upgrade|5\d\d|503|service down|api down|unresponsive|provider bug|toolkit bug|maintainer)\b/i.test(
-    text
-  );
-};
-
-const formatStaffMentions = (staffUserIds: string[]) =>
-  staffUserIds.map((userId) => `<@${userId}>`).join(" ");
-
-const getPrivateDiagnosticsChannel = async (
-  client: Client,
-  message: Message
-) => {
-  if (!config.privateDiagnosticsChannelId) {
-    return message.channel;
-  }
-
-  const channel = await client.channels.fetch(config.privateDiagnosticsChannelId);
-
-  if (!channel?.isTextBased()) {
-    throw new Error(
-      "PRIVATE_DIAGNOSTICS_CHANNEL_ID must point to a text channel that can create private threads."
-    );
-  }
-
-  return channel;
-};
-
-type ActiveThreadListableChannel = TextBasedChannel & {
-  id: string;
-  threads: {
-    fetchActive: () => Promise<{
-      threads: {
-        values: () => Iterable<{
-          id: string;
-          type: ChannelType;
-          parentId: string | null;
-          createdTimestamp: number | null;
-          archived?: boolean;
-        }>;
-      };
-    }>;
-  };
-};
-
-const isActiveThreadListableChannel = (
-  channel: TextBasedChannel
-): channel is ActiveThreadListableChannel =>
-  "id" in channel &&
-  "threads" in channel &&
-  typeof (
-    channel as { threads?: { fetchActive?: unknown } }
-  ).threads?.fetchActive === "function";
-
-const getLatestPrivateThreadUrl = async (message: Message) => {
-  const mappedThreadUrl = latestPrivateThreadByChannelId.get(message.channel.id);
-
-  if (mappedThreadUrl) {
-    return mappedThreadUrl;
-  }
-
-  if (!message.guild || !isActiveThreadListableChannel(message.channel)) {
-    return undefined;
-  }
-
-  const activeThreads = await message.channel.threads.fetchActive();
-  const [latestThread] = Array.from(activeThreads.threads.values())
-    .filter(
-      (thread) =>
-        thread.type === ChannelType.PrivateThread &&
-        thread.parentId === message.channel.id
-    )
-    .sort(
-      (left, right) =>
-        (right.createdTimestamp ?? 0) - (left.createdTimestamp ?? 0)
-    );
-
-  if (!latestThread) {
-    return undefined;
-  }
-
-  const threadUrl = `https://discord.com/channels/${message.guild.id}/${latestThread.id}`;
-  latestPrivateThreadByChannelId.set(message.channel.id, threadUrl);
-  return threadUrl;
-};
-
-const cleanCustomerMessage = (client: Client, message: Message) => {
-  let content = message.content.trim();
-
-  if (client.user) {
-    content = content.replace(new RegExp(`<@!?${client.user.id}>`, "g"), "");
-  }
-
-  return content.replace(/^!support\s*/i, "").trim();
-};
-
-const getDiscordContext = async (
-  channel: TextBasedChannel,
-  fallback: Message
-) => {
-  if (!isFetchableMessageChannel(channel)) {
-    return formatMessageForContext(fallback);
-  }
-
-  const fetched = await channel.messages.fetch({
-    limit: config.discordContextLimit,
-  });
-
-  if (!(fetched instanceof Map)) {
-    return formatMessageForContext(fallback);
-  }
-
-  return Array.from(fetched.values())
-    .reverse()
-    .map(formatMessageForContext)
-    .join("\n");
-};
-
-const buildDiscordContext = async (
-  channel: TextBasedChannel,
-  message: Message
-) => {
-  const channelName = getChannelName(message);
-  const context = await getDiscordContext(channel, message);
-
-  return [
-    channelName ? `Discord channel/thread name: ${channelName}` : "",
-    context,
-  ]
-    .filter(Boolean)
-    .join("\n");
-};
-
-const truncateForPrivateContext = (value: string, maxLength = 1200) =>
-  value.length <= maxLength ? value : `${value.slice(0, maxLength).trim()}\n[truncated]`;
-
-const buildPrivateCaseContext = ({
-  message,
-  customerMessage,
-  decision,
-  debugFields,
-  attachments,
-}: {
-  message: Message;
-  customerMessage: string;
-  decision: ReturnType<typeof classifyPrivacy>;
-  debugFields: ReturnType<typeof parseDebugFields>;
-  attachments: Awaited<ReturnType<typeof collectSupportAttachments>>;
-}) =>
-  [
-    getChannelName(message)
-      ? `Discord channel/thread name: ${getChannelName(message)}`
-      : "",
-    `Public message: ${message.url}`,
-    `Route: ${decision.route}`,
-    decision.reasons.length
-      ? `Why private: ${decision.reasons.join(", ")}`
-      : "",
-    "",
-    "Triggering customer report:",
-    truncateForPrivateContext(customerMessage || "[attachment-only support request]"),
-    "",
-    "Parsed debug fields:",
-    formatDebugFields(debugFields),
-    "",
-    "Attachments:",
-    attachments.length > 0
-      ? formatAttachmentMetadata(attachments)
-      : "No attachments provided.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
-const sendLongReply = async (message: Message, text: string) => {
-  const channel = message.channel;
-
-  if (!isSendableChannel(channel)) {
-    return;
-  }
-
-  const chunks = splitDiscordMessage(text);
-  await message.reply({
-    content: chunks.shift() ?? "I could not produce a response.",
-    allowedMentions: { repliedUser: false },
-    flags: MessageFlags.SuppressEmbeds,
-  });
-
-  for (const chunk of chunks) {
-    await channel.send({
-      content: chunk,
-      allowedMentions: { users: [] },
-      flags: MessageFlags.SuppressEmbeds,
-    });
-  }
-};
-
-const sendLongChannelMessage = async (
-  channel: TextBasedChannel,
-  text: string
-) => {
-  if (!isSendableChannel(channel)) {
-    return;
-  }
-
-  const chunks = splitDiscordMessage(text);
-
-  for (const chunk of chunks) {
-    await channel.send({
-      content: chunk,
-      allowedMentions: { users: [] },
-      flags: MessageFlags.SuppressEmbeds,
-    });
-  }
-};
+  cleanCustomerMessage,
+  formatStaffMentions,
+  isAutoForumPost,
+  isExplicitRequest,
+  isGenericDiagnosticsFollowup,
+  isLikelyNonSupportPost,
+  isPrivateThread,
+  shouldRespond,
+  shouldTagStaff,
+} from "./message-routing.js";
+import {
+  getLatestPrivateThreadUrl,
+  getPrivateDiagnosticsChannel,
+  rememberPrivateThreadForChannel,
+} from "./private-diagnostics.js";
+import {
+  editReplyWithLongMessage,
+  sendLongChannelMessage,
+  sendLongReply,
+} from "./replies.js";
 
 export const registerSupportListeners = (
   client: Client,
@@ -431,7 +116,7 @@ export const registerSupportListeners = (
         );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
         const staffMentions = formatStaffMentions(decision.staffUserIds);
-        latestPrivateThreadByChannelId.set(message.channel.id, threadUrl);
+        rememberPrivateThreadForChannel(message.channel.id, threadUrl);
 
         await thinking.edit({
           content: [
@@ -504,32 +189,21 @@ export const registerSupportListeners = (
         })
       );
 
-      const chunks = splitDiscordMessage(answer);
       const shouldMentionStaff = shouldTagStaff(
         message,
         latestCustomerMessage,
         answer,
         decision.staffUserIds
       );
-      const firstChunk = chunks.shift() ?? "I could not produce a response.";
-
-      await thinking.edit({
-        content: shouldMentionStaff
-          ? `${firstChunk}\n\n${formatStaffMentions(decision.staffUserIds)} tagging staff because this may need owner action.`
-          : firstChunk,
-        allowedMentions: shouldMentionStaff
-          ? { users: decision.staffUserIds }
-          : { users: [] },
-        flags: MessageFlags.SuppressEmbeds,
+      await editReplyWithLongMessage({
+        reply: thinking,
+        channel,
+        text: answer,
+        firstMessageSuffix: shouldMentionStaff
+          ? `${formatStaffMentions(decision.staffUserIds)} tagging staff because this may need owner action.`
+          : undefined,
+        allowedUserMentions: shouldMentionStaff ? decision.staffUserIds : [],
       });
-
-      for (const chunk of chunks) {
-        await channel.send({
-          content: chunk,
-          allowedMentions: { users: [] },
-          flags: MessageFlags.SuppressEmbeds,
-        });
-      }
     } catch (error) {
       console.error("[discord] failed to process support message", error);
       await thinking.edit({
