@@ -8,6 +8,7 @@ The bot listens in Discord, triages support requests, reads local Composio runbo
 
 - Current Composio Sessions APIs: `composio.create(userId)` and `session.tools()`.
 - A support-team identity for internal tools.
+- Public docs lookup through Composio Search.
 - Bring-your-own diagnostics through configurable toolkits such as Datadog and Metabase.
 - Runbook-grounded support behavior.
 - Discord support workflows: public triage, private diagnostics threads, staff routing, and escalation summaries.
@@ -43,7 +44,8 @@ OPENAI_API_KEY=...
 Choose your support toolkits:
 
 ```txt
-COMPOSIO_TOOLKITS=github,linear,slack,gmail,datadog,metabase
+COMPOSIO_TOOLKITS=composio_search,github,linear,slack,gmail,datadog,metabase
+PUBLIC_DOCS_TOOLKITS=composio_search
 SUPPORT_SESSION_USER_ID=support-team
 ```
 
@@ -96,7 +98,7 @@ PRIVATE_DIAGNOSTICS_CHANNEL_ID=1518786626736881694
 1. A customer posts a support issue in Discord.
 2. The bot reads recent Discord context.
 3. The bot loads runbooks from `knowledge/`.
-4. If the request is public-safe, the bot responds without internal diagnostic tools.
+4. If the request is public-safe, the bot can use public Composio Search tools to fetch relevant docs before responding.
 5. If the request includes private identifiers or diagnostics, the bot creates a private staff thread and adds routed staff users.
 6. Inside the private thread, the bot creates or reuses a Composio support session.
 7. The private agent uses configured tools when diagnostics are needed.
@@ -169,6 +171,18 @@ To use your own diagnostics:
 
 The bot will use the tools exposed by `session.tools()` and the guidance in the runbooks.
 
+## Public Docs Search
+
+The bot can use Composio Search in public Discord replies to look up public docs before answering:
+
+```txt
+PUBLIC_DOCS_TOOLKITS=composio_search
+```
+
+The support prompt tells the agent to prefer official Composio docs, search `docs.composio.dev` or `https://docs.composio.dev/llms.txt`, and cite docs URLs when tool results provide them.
+
+Keep internal tools such as Datadog, Metabase, logs, dashboards, account lookups, and database queries out of `PUBLIC_DOCS_TOOLKITS`. Those belong in `COMPOSIO_TOOLKITS` and only run in private diagnostics threads.
+
 ## Offline Support Eval
 
 Run an offline eval against recent Plain support issues:
@@ -188,7 +202,7 @@ Useful settings:
 ```txt
 EVAL_OPENAI_MODEL=gpt-5.5
 EVAL_USE_PRIVATE_TOOLS=true
-EVAL_TOOLKITS=datadog,metabase
+EVAL_TOOLKITS=composio_search,datadog,metabase
 EVAL_DAYS_BACK=30
 EVAL_MAX_THREADS=0
 EVAL_CONCURRENCY=3

@@ -18,23 +18,50 @@ export class SupportSessionManager {
   private readonly sessions = new Map<string, Promise<SupportComposioSession>>();
 
   getSupportSession(userId = config.supportSessionUserId) {
-    const cached = this.sessions.get(userId);
+    return this.getSession({
+      userId,
+      toolkits: config.composioToolkits,
+      label: "support",
+    });
+  }
+
+  getPublicDocsSession(userId = config.supportSessionUserId) {
+    return this.getSession({
+      userId,
+      toolkits: config.publicDocsToolkits,
+      label: "public docs",
+    });
+  }
+
+  private getSession({
+    userId,
+    toolkits,
+    label,
+  }: {
+    userId: string;
+    toolkits: string[];
+    label: string;
+  }) {
+    const cacheKey = `${userId}:${toolkits.join(",")}:${label}`;
+    const cached = this.sessions.get(cacheKey);
 
     if (cached) {
       return cached;
     }
 
-    const sessionPromise = this.createSupportSession(userId);
-    this.sessions.set(userId, sessionPromise);
+    const sessionPromise = this.createSession(userId, toolkits, label);
+    this.sessions.set(cacheKey, sessionPromise);
     return sessionPromise;
   }
 
-  private async createSupportSession(
-    userId: string
+  private async createSession(
+    userId: string,
+    toolkits: string[],
+    label: string
   ): Promise<SupportComposioSession> {
     const session = await this.composio.create(userId, {
       toolkits: {
-        enable: config.composioToolkits,
+        enable: toolkits,
       },
       workbench: {
         enable: config.composioWorkbenchEnabled,
@@ -47,10 +74,10 @@ export class SupportSessionManager {
         ? session.sessionId
         : undefined;
 
-    console.log("[composio] support session ready", {
+    console.log(`[composio] ${label} session ready`, {
       userId,
       sessionId,
-      toolkits: config.composioToolkits,
+      toolkits,
       toolCount: Object.keys(tools).length,
     });
 
@@ -61,4 +88,3 @@ export class SupportSessionManager {
     };
   }
 }
-

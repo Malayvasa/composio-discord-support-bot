@@ -14,7 +14,7 @@ const daysBack = Number(process.env.EVAL_DAYS_BACK ?? 30);
 const maxThreads = Number(process.env.EVAL_MAX_THREADS ?? 0);
 const concurrency = Number(process.env.EVAL_CONCURRENCY ?? 3);
 const usePrivateTools = (process.env.EVAL_USE_PRIVATE_TOOLS ?? "true") === "true";
-const evalToolkits = (process.env.EVAL_TOOLKITS ?? "datadog,metabase")
+const evalToolkits = (process.env.EVAL_TOOLKITS ?? "composio_search,datadog,metabase")
   .split(",")
   .map((toolkit) => toolkit.trim())
   .filter(Boolean);

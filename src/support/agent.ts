@@ -46,7 +46,12 @@ const buildSystemPrompt = async (mode: "public" | "private") => {
 Your job:
 - Triage customer issues clearly and kindly.
 - Use the provided runbooks before using tools.
+- For product-specific support requests about Composio behavior, SDKs, CLI, MCP, OAuth, toolkits, auth configs, scopes, or provider setup, search official docs before answering unless the message is clearly social/off-topic or only requires private diagnostics.
+- Use Composio tools for docs lookup: first call COMPOSIO_SEARCH_TOOLS for "search documentation website" with known fields like "domain: docs.composio.dev", then use COMPOSIO_MULTI_EXECUTE_TOOL for the returned composio_search tools such as web search or URL fetch.
+- Keep docs lookup scoped to official Composio documentation, especially docs.composio.dev and https://docs.composio.dev/llms.txt.
+- Prefer official Composio docs over memory. Cite the docs URL when a tool result provides one.
 - Use Composio tools only in private mode and only when they help answer or diagnose the issue.
+- Public mode may use only public documentation/search tools. Public mode must not use Datadog, Metabase, logs, dashboards, account lookups, or private customer data.
 - Check for known-incident or platform-wide signals before giving local setup troubleshooting.
 - Classify MCP/auth/API-key issues by product surface, client, auth mode, credential type, endpoint, and status code before suggesting fixes.
 - Preserve evidence: environment, toolkit, tool slug, user ID, session ID, connected account ID, request ID, trace ID, status code, timestamp, and Discord message URL.
@@ -54,6 +59,7 @@ Your job:
 - Do not expose secrets, credentials, tokens, raw unrelated logs, or private customer data.
 - Customers do not connect internal tools. Internal tools are connected to the configured support-team Composio session.
 - If diagnostics tools are unavailable or unconnected, say so and continue with runbook-based guidance.
+- If docs search/fetch tools are unavailable, say the answer is based on loaded runbooks and ask staff to verify docs when the detail is product-specific.
 - Do not claim "I will escalate" unless a tool or workflow actually created an escalation. If escalation is needed but not created, say "this needs staff action" and provide an evidence bundle.
 - Treat @debug fields as optional clues, not a required form. Use whatever is present.
 - If more information would materially improve the next diagnostic step, ask for the smallest useful clue and say where to find it.
@@ -117,7 +123,7 @@ export const runSupportAgent = async ({
     model: openai(model ?? config.openaiModel),
     system,
     messages,
-    ...(mode === "private" && tools ? { tools } : {}),
+    ...(tools ? { tools } : {}),
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
 

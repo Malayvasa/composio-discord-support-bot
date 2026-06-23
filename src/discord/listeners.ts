@@ -353,7 +353,9 @@ export const registerSupportListeners = (
       const attachments = await collectSupportAttachments(message);
       const supportSession = isPrivateThread(message)
         ? await sessions.getSupportSession()
-        : undefined;
+        : config.publicDocsToolkits.length > 0
+          ? await sessions.getPublicDocsSession()
+          : undefined;
       const answer = await withTypingHeartbeat(channel, () =>
         runSupportAgent({
           customerMessage: latestCustomerMessage,

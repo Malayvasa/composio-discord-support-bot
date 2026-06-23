@@ -25,7 +25,8 @@ const envSchema = z.object({
   PRIVATE_THREAD_NAME_PREFIX: z.string().default("support-debug"),
   COMPOSIO_TOOLKITS: z
     .string()
-    .default("github,linear,slack,gmail,datadog,metabase"),
+    .default("composio_search,github,linear,slack,gmail,datadog,metabase"),
+  PUBLIC_DOCS_TOOLKITS: z.string().default("composio_search"),
   COMPOSIO_WORKBENCH_ENABLED: z
     .enum(["true", "false"])
     .default("false"),
@@ -66,6 +67,7 @@ export const config = {
   privateDiagnosticsChannelId: env.PRIVATE_DIAGNOSTICS_CHANNEL_ID,
   privateThreadNamePrefix: env.PRIVATE_THREAD_NAME_PREFIX,
   composioToolkits: csv(env.COMPOSIO_TOOLKITS),
+  publicDocsToolkits: csv(env.PUBLIC_DOCS_TOOLKITS),
   composioWorkbenchEnabled: env.COMPOSIO_WORKBENCH_ENABLED === "true",
   discordContextLimit: env.DISCORD_CONTEXT_LIMIT,
   maxAgentSteps: env.MAX_AGENT_STEPS,
