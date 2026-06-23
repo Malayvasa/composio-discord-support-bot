@@ -88,6 +88,8 @@ The bot needs Discord permissions to send messages, create private threads, and 
 
 Private-thread triggers include organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, logs, dashboards, and database queries.
 
+Private thread names use the configured prefix, routing category, and the best available debug clue, such as `support-debug-account-ok-waou8bjo73ly` or `support-debug-infra-pr-xtim-6kfdiir`.
+
 ## Optional Debug Fields
 
 Users can include structured clues in any support message:

@@ -153,7 +153,11 @@ export const registerSupportListeners = (
       const decision = classifyPrivacy(customerMessage, debugFields);
 
       if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
-        const thread = await createPrivateInvestigationThread(message, decision);
+        const thread = await createPrivateInvestigationThread(
+          message,
+          decision,
+          debugFields
+        );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
         const staffMentions = decision.staffUserIds
           .map((userId) => `<@${userId}>`)

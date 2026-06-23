@@ -5,6 +5,7 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config.js";
+import type { DebugFields } from "../support/debug-fields.js";
 import type { PrivacyDecision } from "../support/privacy.js";
 
 type ThreadableChannel = TextBasedChannel & {
@@ -29,9 +30,65 @@ const sanitizeThreadName = (value: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 80);
 
+const compactValue = (value: string) =>
+  sanitizeThreadName(value).slice(0, 24);
+
+const pickDebugSubject = (fields: DebugFields) => {
+  if (fields.org_id) {
+    return compactValue(fields.org_id);
+  }
+
+  if (fields.project_id) {
+    return compactValue(fields.project_id);
+  }
+
+  if (fields.toolkit) {
+    return compactValue(fields.toolkit);
+  }
+
+  if (fields.tool) {
+    return compactValue(fields.tool);
+  }
+
+  if (fields.org_member_email) {
+    const [localPart] = fields.org_member_email.split("@");
+    return compactValue(localPart);
+  }
+
+  if (fields.user_id) {
+    return compactValue(fields.user_id);
+  }
+
+  if (fields.request_id) {
+    return compactValue(fields.request_id);
+  }
+
+  return undefined;
+};
+
+const buildThreadName = (
+  message: Message,
+  decision: PrivacyDecision,
+  fields: DebugFields
+) => {
+  const parts = [
+    config.privateThreadNamePrefix,
+    fields.environment ? compactValue(fields.environment) : undefined,
+    decision.route,
+    pickDebugSubject(fields),
+  ].filter(Boolean);
+
+  if (parts.length < 3) {
+    parts.push(message.id.slice(-6));
+  }
+
+  return sanitizeThreadName(parts.join("-"));
+};
+
 export const createPrivateInvestigationThread = async (
   message: Message,
-  decision: PrivacyDecision
+  decision: PrivacyDecision,
+  fields: DebugFields = {}
 ) => {
   if (!message.guild) {
     throw new Error("Private diagnostics require a guild channel.");
@@ -47,9 +104,7 @@ export const createPrivateInvestigationThread = async (
     );
   }
 
-  const threadName = sanitizeThreadName(
-    `${config.privateThreadNamePrefix}-${decision.route}-${message.id}`
-  );
+  const threadName = buildThreadName(message, decision, fields);
 
   const thread = await message.channel.threads.create({
     name: threadName,
@@ -80,4 +135,3 @@ export const createPrivateInvestigationThread = async (
 
   return thread;
 };
-
