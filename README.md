@@ -101,15 +101,15 @@ flowchart TD
   B --> C{"Private data or diagnostics needed?"}
 
   C -->|No| D["Public support path"]
-  D --> E["Load runbooks + optional public docs search"]
+  D --> E["Use support guidelines and public docs"]
   E --> F["Post short public reply"]
 
   C -->|Yes| G["Private diagnostics path"]
   G --> H["Create private staff thread"]
-  H --> I["Post compact case handoff"]
-  I --> J["Use support-team Composio session"]
-  J --> K["Run private tools when useful"]
-  K --> L["Post customer-safe private update"]
+  H --> I["Share a compact case summary"]
+  I --> J["Use the support team's connected tools"]
+  J --> K["Check logs or dashboards when useful"]
+  K --> L["Post a safe private update"]
 
   H --> M["Public channel gets sanitized thread link only"]
   G --> N{"Thread/staff setup fails?"}
@@ -123,7 +123,7 @@ In short:
 3. Public-safe issues stay public and may use public Composio docs search.
 4. Private identifiers, attachments, explicit log checks, or internal diagnostics requests move into a private staff thread.
 5. Private threads receive a compact handoff, not broad public-channel history.
-6. Private diagnostics use the configured support-team Composio session and private toolkits.
+6. Private diagnostics use the tools your support team connected in Composio.
 7. Discord replies suppress URL embeds by default to keep support threads readable.
 
 Private-thread triggers include real organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, Composio log IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, internal logs, explicit log checks, and database queries.
