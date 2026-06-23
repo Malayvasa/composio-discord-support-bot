@@ -86,9 +86,9 @@ The bot needs Discord permissions to send messages, create private threads, and 
 Discord forum posts are public threads, and Discord cannot convert them into private threads or create private threads inside them. If private diagnostics are needed from a forum post, configure a normal text channel where private diagnostics threads should be created:
 
 ```txt
-SUPPORT_CHANNEL_IDS=1268871288156323901
-SUPPORT_FORUM_AUTHOR_IDS=417699705330335745
-PRIVATE_DIAGNOSTICS_CHANNEL_ID=1518786626736881694
+SUPPORT_CHANNEL_IDS=123456789012345678
+SUPPORT_FORUM_AUTHOR_IDS=234567890123456789
+PRIVATE_DIAGNOSTICS_CHANNEL_ID=345678901234567890
 ```
 
 `SUPPORT_FORUM_AUTHOR_IDS` is optional. It is useful for testing because it limits auto-responses to forum posts created by specific Discord users.
@@ -131,10 +131,10 @@ ATTACHMENT_TEXT_MAX_CHARS=12000
 Users can include structured clues in any support message:
 
 ```txt
-@project_id: pr_XTim_6KFDiIR
-@org_id: ok_WAOU8bjO73lY
-@org_member_email: malay@composio.dev
-@user_id: 04570f62-4d8d-46e2-b5f3-3dd1b3972495
+@project_id: pr_your_project_id
+@org_id: org_your_workspace_id
+@org_member_email: user@example.com
+@user_id: user_123
 @environment: production
 @time_window: last 2 hours
 @toolkit: github

@@ -5,10 +5,10 @@ Users can include structured debug clues in any support message. These fields ar
 Example:
 
 ```txt
-@project_id: pr_XTim_6KFDiIR
-@org_id: ok_WAOU8bjO73lY
-@org_member_email: malay@composio.dev
-@user_id: 04570f62-4d8d-46e2-b5f3-3dd1b3972495
+@project_id: pr_your_project_id
+@org_id: org_your_workspace_id
+@org_member_email: user@example.com
+@user_id: user_123
 @environment: production
 @time_window: last 2 hours
 @toolkit: github
@@ -45,4 +45,3 @@ Where users can find clues:
 - Time window: User report timestamp, incident timeline, or log timestamp.
 
 When context is missing, ask for at most three focused items and explain where to find them. Do not block on a complete form.
-
