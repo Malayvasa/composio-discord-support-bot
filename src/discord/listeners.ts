@@ -114,6 +114,26 @@ const isLikelyNonSupportPost = (message: Message, customerMessage: string) => {
   );
 };
 
+const shouldTagStaff = (
+  message: Message,
+  customerMessage: string,
+  answer: string,
+  staffUserIds: string[]
+) => {
+  if (staffUserIds.length === 0 || isPrivateThread(message)) {
+    return false;
+  }
+
+  const text = `${getChannelName(message) ?? ""} ${customerMessage} ${answer}`.toLowerCase();
+
+  return /\b(staff action|needs staff|blocked|fully blocked|urgent|production|prod|outage|incident|security|billing|refund|frozen|cannot upgrade|can't upgrade|5\d\d|503|down|unresponsive|provider bug|toolkit bug|maintainer|owner)\b/i.test(
+    text
+  );
+};
+
+const formatStaffMentions = (staffUserIds: string[]) =>
+  staffUserIds.map((userId) => `<@${userId}>`).join(" ");
+
 const getPrivateDiagnosticsChannel = async (
   client: Client,
   message: Message
@@ -280,9 +300,7 @@ export const registerSupportListeners = (
           diagnosticsChannel
         );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
-        const staffMentions = decision.staffUserIds
-          .map((userId) => `<@${userId}>`)
-          .join(" ");
+        const staffMentions = formatStaffMentions(decision.staffUserIds);
 
         await thinking.edit(
           [
@@ -351,7 +369,22 @@ export const registerSupportListeners = (
       );
 
       const chunks = splitDiscordMessage(answer);
-      await thinking.edit(chunks.shift() ?? "I could not produce a response.");
+      const shouldMentionStaff = shouldTagStaff(
+        message,
+        latestCustomerMessage,
+        answer,
+        decision.staffUserIds
+      );
+      const firstChunk = chunks.shift() ?? "I could not produce a response.";
+
+      await thinking.edit({
+        content: shouldMentionStaff
+          ? `${firstChunk}\n\n${formatStaffMentions(decision.staffUserIds)} tagging staff because this may need owner action.`
+          : firstChunk,
+        allowedMentions: shouldMentionStaff
+          ? { users: decision.staffUserIds }
+          : { users: [] },
+      });
 
       for (const chunk of chunks) {
         await channel.send({

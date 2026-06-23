@@ -1,8 +1,10 @@
 import "dotenv/config";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { Composio } from "@composio/core";
+import { VercelProvider } from "@composio/vercel";
 import { openai } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { generateText, type ToolSet } from "ai";
 import { config } from "../src/config.js";
 import { runSupportAgent } from "../src/support/agent.js";
 import { parseDebugFields } from "../src/support/debug-fields.js";
@@ -13,9 +15,17 @@ const daysBack = Number(process.env.EVAL_DAYS_BACK ?? 30);
 const maxThreads = Number(process.env.EVAL_MAX_THREADS ?? 0);
 const maxMessagesPerThread = Number(process.env.EVAL_MAX_MESSAGES_PER_THREAD ?? 300);
 const concurrency = Number(process.env.EVAL_CONCURRENCY ?? 3);
+const usePrivateTools = (process.env.EVAL_USE_PRIVATE_TOOLS ?? "true") === "true";
+const evalToolkits = (process.env.EVAL_TOOLKITS ?? "datadog,metabase")
+  .split(",")
+  .map((toolkit) => toolkit.trim())
+  .filter(Boolean);
 const since = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000);
 const runDate = new Date().toISOString().slice(0, 10);
-const outputDir = join(process.cwd(), "eval", `support-forum-${runDate}`);
+const outputName =
+  process.env.EVAL_OUTPUT_NAME ??
+  `support-forum-${usePrivateTools ? "diagnostics-" : ""}${runDate}`;
+const outputDir = join(process.cwd(), "eval", outputName);
 
 interface DiscordChannel {
   id: string;
@@ -71,6 +81,9 @@ interface BotAnswer {
   threadId: string;
   answer: string;
   model: string;
+  mode: "public" | "private";
+  toolkits: string[];
+  composioSessionId?: string;
 }
 
 interface Judgement {
@@ -84,13 +97,62 @@ interface Judgement {
     hallucinationRisk: number;
   };
   actualResolution: string;
+  shouldHaveUsedDatadog: boolean;
+  shouldHaveUsedMetabase: boolean;
+  privateDiagnosticsNeeded: boolean;
+  diagnosticEvidenceQuality: number;
   botMisses: string[];
   botStrengths: string[];
   recommendedImprovements: string[];
   summary: string;
 }
 
+interface EvalSupportSession {
+  sessionId?: string;
+  userId: string;
+  tools: ToolSet;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const composio = new Composio({
+  apiKey: config.composioApiKey,
+  provider: new VercelProvider(),
+});
+let evalSupportSession: Promise<EvalSupportSession> | undefined;
+
+const getEvalSupportSession = async () => {
+  evalSupportSession ??= (async () => {
+    const session = await composio.create(config.supportSessionUserId, {
+      toolkits: {
+        enable: evalToolkits,
+      },
+      workbench: {
+        enable: config.composioWorkbenchEnabled,
+      },
+    });
+    const tools = await session.tools();
+    const sessionId =
+      "sessionId" in session && typeof session.sessionId === "string"
+        ? session.sessionId
+        : undefined;
+
+    console.log("[eval] support diagnostics session ready", {
+      userId: config.supportSessionUserId,
+      sessionId,
+      toolkits: evalToolkits,
+      toolCount: Object.keys(tools).length,
+    });
+
+    return {
+      userId: config.supportSessionUserId,
+      sessionId,
+      tools,
+    };
+  })();
+
+  return evalSupportSession;
+};
 
 const request = async <T>(path: string): Promise<T> => {
   const token = config.discordToken;
@@ -299,11 +361,23 @@ const collectThreads = async () => {
 };
 
 const answerThread = async (thread: EvalThread): Promise<BotAnswer> => {
+  const supportSession = usePrivateTools
+    ? await getEvalSupportSession()
+    : undefined;
   const answer = await runSupportAgent({
     customerMessage: thread.query,
-    discordContext: thread.replayContext,
+    discordContext: [
+      thread.replayContext,
+      "",
+      usePrivateTools
+        ? "Offline eval mode: private diagnostics tools are available. Use Datadog or Metabase when they materially help diagnose the original support request. Summarize what was checked."
+        : "Offline eval mode: answer without private diagnostics tools.",
+    ].join("\n"),
     discordMessageUrl: thread.url,
-    mode: "public",
+    mode: usePrivateTools ? "private" : "public",
+    tools: supportSession?.tools,
+    composioSessionId: supportSession?.sessionId,
+    composioUserId: supportSession?.userId,
     debugFields: parseDebugFields(thread.query),
     model: evalModel,
   });
@@ -312,6 +386,9 @@ const answerThread = async (thread: EvalThread): Promise<BotAnswer> => {
     threadId: thread.id,
     answer,
     model: evalModel,
+    mode: usePrivateTools ? "private" : "public",
+    toolkits: supportSession ? evalToolkits : [],
+    composioSessionId: supportSession?.sessionId,
   };
 };
 
@@ -370,13 +447,19 @@ Return only valid JSON matching this TypeScript shape:
     "hallucinationRisk": number
   },
   "actualResolution": string,
+  "shouldHaveUsedDatadog": boolean,
+  "shouldHaveUsedMetabase": boolean,
+  "privateDiagnosticsNeeded": boolean,
+  "diagnosticEvidenceQuality": number,
   "botMisses": string[],
   "botStrengths": string[],
   "recommendedImprovements": string[],
   "summary": string
 }
 
-Score each field 1-5, where 5 is best for correctness/helpfulness/safety/timeToResolutionImpact, 5 means the bot asked all needed diagnostics for missingDiagnostics, and 1 is best for hallucinationRisk.
+Score each field 1-5, where 5 is best for correctness/helpfulness/safety/timeToResolutionImpact, 5 means the bot asked all needed diagnostics for missingDiagnostics, 1 is best for hallucinationRisk, and diagnosticEvidenceQuality is 1-5 where 5 means the answer used or explicitly ruled out Datadog/Metabase evidence well when needed.
+
+This eval replay has private diagnostics tools enabled for Datadog and Metabase. Judge whether those tools should have been used based on the original query and actual forum resolution. If the bot should have checked logs/analytics but did not, mark diagnosticEvidenceQuality low and include that in botMisses.
 
 Forum thread:
 ${JSON.stringify(
@@ -384,6 +467,8 @@ ${JSON.stringify(
     threadId: thread.id,
     title: thread.name,
     originalQuery: thread.query,
+    replayMode: answer.mode,
+    availableToolkits: answer.toolkits,
     botAnswer: answer.answer,
     actualForumReplies: thread.resolutionEvidence || "[no later replies]",
   },
@@ -434,9 +519,16 @@ const makeReport = (
         `- Thread: ${thread.url}`,
         `- Messages: ${thread.messageCount}`,
         `- Model: ${answer?.model ?? evalModel}`,
+        `- Replay mode: ${answer?.mode ?? (usePrivateTools ? "private" : "public")}`,
+        answer?.toolkits.length
+          ? `- Available toolkits: ${answer.toolkits.join(", ")}`
+          : "",
         judgement
-          ? `- Scores: correctness ${judgement.scores.correctness}/5, helpfulness ${judgement.scores.helpfulness}/5, diagnostics ${judgement.scores.missingDiagnostics}/5, safety ${judgement.scores.safety}/5, time impact ${judgement.scores.timeToResolutionImpact}/5, hallucination risk ${judgement.scores.hallucinationRisk}/5`
+          ? `- Scores: correctness ${judgement.scores.correctness}/5, helpfulness ${judgement.scores.helpfulness}/5, diagnostics ${judgement.scores.missingDiagnostics}/5, diagnostic evidence ${judgement.diagnosticEvidenceQuality}/5, safety ${judgement.scores.safety}/5, time impact ${judgement.scores.timeToResolutionImpact}/5, hallucination risk ${judgement.scores.hallucinationRisk}/5`
           : "- Scores: not judged",
+        judgement
+          ? `- Should have used: Datadog ${judgement.shouldHaveUsedDatadog ? "yes" : "no"}, Metabase ${judgement.shouldHaveUsedMetabase ? "yes" : "no"}, private diagnostics ${judgement.privateDiagnosticsNeeded ? "yes" : "no"}`
+          : "",
         judgement ? `- Actual resolution: ${judgement.actualResolution}` : "",
         judgement ? `- Summary: ${judgement.summary}` : "",
         judgement?.botMisses.length
@@ -459,15 +551,21 @@ const makeReport = (
     `Forum threads evaluated: ${threads.length}`,
     `Days back: ${daysBack}`,
     `Eval model: ${evalModel}`,
+    `Replay mode: ${usePrivateTools ? "private diagnostics" : "public only"}`,
+    `Diagnostic toolkits: ${usePrivateTools ? evalToolkits.join(", ") : "none"}`,
     "",
     "## Aggregate Scores",
     "",
     `- Correctness: ${average((j) => j.scores.correctness).toFixed(2)}/5`,
     `- Helpfulness: ${average((j) => j.scores.helpfulness).toFixed(2)}/5`,
     `- Missing diagnostics coverage: ${average((j) => j.scores.missingDiagnostics).toFixed(2)}/5`,
+    `- Diagnostic evidence quality: ${average((j) => j.diagnosticEvidenceQuality).toFixed(2)}/5`,
     `- Safety: ${average((j) => j.scores.safety).toFixed(2)}/5`,
     `- Time-to-resolution impact: ${average((j) => j.scores.timeToResolutionImpact).toFixed(2)}/5`,
     `- Hallucination risk: ${average((j) => j.scores.hallucinationRisk).toFixed(2)}/5`,
+    `- Datadog should-have-used count: ${judgements.filter((j) => j.shouldHaveUsedDatadog).length}`,
+    `- Metabase should-have-used count: ${judgements.filter((j) => j.shouldHaveUsedMetabase).length}`,
+    `- Private diagnostics needed count: ${judgements.filter((j) => j.privateDiagnosticsNeeded).length}`,
     "",
     "## Top Improvement Themes",
     "",

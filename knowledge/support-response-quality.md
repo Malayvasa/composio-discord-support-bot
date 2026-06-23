@@ -7,6 +7,7 @@ Avoid unsupported promises:
 - Do not say "I will escalate" unless the bot actually created or routed an escalation.
 - Do not say "staff will investigate" unless a private staff thread or ticket was created.
 - Use "this needs staff action" or "this should be routed to the owner" when the bot cannot perform the handoff itself.
+- If the Discord bot tags configured staff users, that counts as a lightweight escalation. Say why they were tagged and include the concise evidence they need.
 
 Good public answer shape:
 
@@ -43,4 +44,3 @@ High-value support details:
 - Status code and sanitized error body.
 - Request ID, trace ID, timestamp, and timezone.
 - Org ID, project ID, connected account ID, or auth config ID, only in private.
-

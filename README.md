@@ -154,6 +154,8 @@ Routing is intentionally simple and env-based for the public example:
 
 If no users resolve for a route, diagnostics do not run.
 
+For public cases that do not need private diagnostics but look blocked, urgent, incident-shaped, billing-related, or owner-actionable, the bot can tag the routed staff users in the public reply. Private diagnostics threads always tag the routed staff users inside the private thread.
+
 ## Bring Your Own Datadog And Metabase
 
 This repo does not hard-code Composio's internal dashboards or logs.
@@ -175,16 +177,21 @@ Run an offline eval against recent Discord support forum posts:
 npm run eval:support-forum
 ```
 
-The eval does not post to Discord. It pulls forum threads from `SUPPORT_CHANNEL_IDS`, generates fresh bot answers using `EVAL_OPENAI_MODEL` (default `gpt-5.5`), compares them with actual forum replies, and writes artifacts to `eval/support-forum-YYYY-MM-DD/`.
+The eval does not post to Discord. It pulls forum threads from `SUPPORT_CHANNEL_IDS`, generates fresh bot answers using `EVAL_OPENAI_MODEL` (default `gpt-5.5`), compares them with actual forum replies, and writes artifacts to `eval/support-forum-diagnostics-YYYY-MM-DD/`.
+
+By default, the eval runs in private diagnostics mode with Datadog and Metabase enabled. That lets it test whether the bot checked internal logs or analytics when those tools would materially help.
 
 Useful settings:
 
 ```txt
 EVAL_OPENAI_MODEL=gpt-5.5
+EVAL_USE_PRIVATE_TOOLS=true
+EVAL_TOOLKITS=datadog,metabase
 EVAL_DAYS_BACK=30
 EVAL_MAX_THREADS=0
 EVAL_MAX_MESSAGES_PER_THREAD=300
 EVAL_CONCURRENCY=3
+EVAL_OUTPUT_NAME=
 ```
 
 ## Key Files
