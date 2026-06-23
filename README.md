@@ -111,18 +111,6 @@ Customers or staff can include any clues they have. None are required.
 Attachments are treated as private by default. The bot opens a private staff
 thread before reading small text-like files.
 
-## Offline Eval
-
-If you connect Plain, you can run an offline evaluation against resolved support
-issues:
-
-```bash
-npm run eval:support
-```
-
-This does not post to Discord or Plain. It writes results under `eval/`, which is
-gitignored.
-
 ## Key Files
 
 - [src/composio/session.ts](./src/composio/session.ts): Composio Sessions setup.
