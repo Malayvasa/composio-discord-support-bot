@@ -1,9 +1,6 @@
 import type { Message, TextBasedChannel } from "discord.js";
 import { config } from "../config.js";
-import {
-  collectSupportAttachments,
-  formatAttachmentMetadata,
-} from "../support/attachments.js";
+import { collectSupportAttachments } from "../support/attachments.js";
 import { formatDebugFields, parseDebugFields } from "../support/debug-fields.js";
 import { classifyPrivacy } from "../support/privacy.js";
 import {
@@ -54,6 +51,39 @@ const truncateForPrivateContext = (value: string, maxLength = 1200) =>
     ? value
     : `${value.slice(0, maxLength).trim()}\n[truncated]`;
 
+const formatPrivateDebugFields = (
+  debugFields: ReturnType<typeof parseDebugFields>
+) => {
+  const formatted = formatDebugFields(debugFields);
+  return formatted === "No debug fields provided."
+    ? "- None provided yet."
+    : formatted
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => `- ${line}`)
+        .join("\n");
+};
+
+const formatPrivateAttachments = (
+  attachments: Awaited<ReturnType<typeof collectSupportAttachments>>
+) => {
+  if (attachments.length === 0) {
+    return "- None.";
+  }
+
+  return attachments
+    .map((attachment, index) =>
+      [
+        `- ${index + 1}. ${attachment.name}`,
+        `  - Type: ${attachment.contentType ?? "unknown"}`,
+        `  - Size: ${attachment.size} bytes`,
+        `  - Text: ${attachment.textStatus}`,
+        `  - URL: ${attachment.url}`,
+      ].join("\n")
+    )
+    .join("\n");
+};
+
 export const buildPrivateCaseContext = ({
   message,
   customerMessage,
@@ -68,25 +98,27 @@ export const buildPrivateCaseContext = ({
   attachments: Awaited<ReturnType<typeof collectSupportAttachments>>;
 }) =>
   [
-    getChannelName(message)
-      ? `Discord channel/thread name: ${getChannelName(message)}`
-      : "",
-    `Public message: ${message.url}`,
-    `Route: ${decision.route}`,
-    decision.reasons.length
-      ? `Why private: ${decision.reasons.join(", ")}`
-      : "",
+    "**Case summary**",
     "",
-    "Triggering customer report:",
+    `**Route:** ${decision.route}`,
+    `**Why private:** ${
+      decision.reasons.length ? decision.reasons.join(", ") : "staff diagnostics"
+    }`,
+    getChannelName(message)
+      ? `**Source:** #${getChannelName(message)} - ${message.url}`
+      : `**Source:** ${message.url}`,
+    "",
+    "**Customer report**",
     truncateForPrivateContext(customerMessage || "[attachment-only support request]"),
     "",
-    "Parsed debug fields:",
-    formatDebugFields(debugFields),
+    "**Debug fields**",
+    formatPrivateDebugFields(debugFields),
     "",
-    "Attachments:",
-    attachments.length > 0
-      ? formatAttachmentMetadata(attachments)
-      : "No attachments provided.",
+    "**Attachments**",
+    formatPrivateAttachments(attachments),
+    "",
+    "**Next step**",
+    "- I will check the available support tools and reply with a customer-safe update.",
   ]
     .filter(Boolean)
     .join("\n");

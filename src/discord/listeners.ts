@@ -139,7 +139,8 @@ export const registerSupportListeners = (
         const privateStartMessage = [
           staffMentions,
           "",
-          "Private support investigation started.",
+          "**Private support investigation**",
+          "Staff-only thread for account, log, or diagnostics context.",
           "",
           privateCaseContext,
         ].join("\n");
