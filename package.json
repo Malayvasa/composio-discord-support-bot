@@ -5,6 +5,7 @@
   "type": "module",
   "description": "A Composio Sessions example for a Discord customer support bot with bring-your-own diagnostics tools.",
   "scripts": {
+    "connect:toolkits": "tsx scripts/connect-support-toolkits.ts",
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
