@@ -438,7 +438,6 @@ const threadToEvalCase = (thread: PlainThreadDetail): EvalThread | undefined => 
       "",
       "Original customer issue:",
       query,
-      thread.previewText ? ["", "Plain preview:", thread.previewText].join("\n") : "",
     ]
       .filter(Boolean)
       .join("\n"),
