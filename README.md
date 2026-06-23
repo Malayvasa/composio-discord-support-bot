@@ -167,6 +167,26 @@ To use your own diagnostics:
 
 The bot will use the tools exposed by `session.tools()` and the guidance in the runbooks.
 
+## Offline Support Forum Eval
+
+Run an offline eval against recent Discord support forum posts:
+
+```bash
+npm run eval:support-forum
+```
+
+The eval does not post to Discord. It pulls forum threads from `SUPPORT_CHANNEL_IDS`, generates fresh bot answers using `EVAL_OPENAI_MODEL` (default `gpt-5.5`), compares them with actual forum replies, and writes artifacts to `eval/support-forum-YYYY-MM-DD/`.
+
+Useful settings:
+
+```txt
+EVAL_OPENAI_MODEL=gpt-5.5
+EVAL_DAYS_BACK=30
+EVAL_MAX_THREADS=0
+EVAL_MAX_MESSAGES_PER_THREAD=300
+EVAL_CONCURRENCY=3
+```
+
 ## Key Files
 
 - `src/composio/session.ts`: Composio Sessions setup.
@@ -178,6 +198,7 @@ The bot will use the tools exposed by `session.tools()` and the guidance in the 
 - `knowledge/`: Support and diagnostics runbooks.
 - `docs/plans/2026-06-22-customer-support-bot-design.md`: Design note.
 - `docs/plans/2026-06-22-private-diagnostics-threads-design.md`: Private diagnostics design note.
+- `docs/plans/2026-06-22-support-forum-eval-design.md`: Offline eval design note.
 
 ## Current Composio Pattern
 

@@ -25,6 +25,7 @@ export interface SupportTurnInput {
   composioUserId?: string;
   debugFields?: DebugFields;
   attachments?: SupportAttachment[];
+  model?: string;
 }
 
 const buildSystemPrompt = async (mode: "public" | "private") => {
@@ -80,6 +81,7 @@ export const runSupportAgent = async ({
   composioUserId,
   debugFields,
   attachments = [],
+  model,
 }: SupportTurnInput) => {
   const system = await buildSystemPrompt(mode);
 
@@ -109,7 +111,7 @@ export const runSupportAgent = async ({
   ];
 
   const result = await generateText({
-    model: openai(config.openaiModel),
+    model: openai(model ?? config.openaiModel),
     system,
     messages,
     ...(mode === "private" && tools ? { tools } : {}),
