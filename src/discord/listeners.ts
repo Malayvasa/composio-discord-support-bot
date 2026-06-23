@@ -19,6 +19,7 @@ import {
   isFetchableMessageChannel,
   isSendableChannel,
   splitDiscordMessage,
+  withTypingHeartbeat,
 } from "../utils/discord.js";
 
 const isPrivateThread = (message: Message) =>
@@ -260,17 +261,19 @@ export const registerSupportListeners = (
         });
 
         const supportSession = await sessions.getSupportSession();
-        const privateAnswer = await runSupportAgent({
-          customerMessage: latestCustomerMessage,
-          discordContext,
-          discordMessageUrl: message.url,
-          mode: "private",
-          tools: supportSession.tools,
-          composioSessionId: supportSession.sessionId,
-          composioUserId: supportSession.userId,
-          debugFields,
-          attachments,
-        });
+        const privateAnswer = await withTypingHeartbeat(thread, () =>
+          runSupportAgent({
+            customerMessage: latestCustomerMessage,
+            discordContext,
+            discordMessageUrl: message.url,
+            mode: "private",
+            tools: supportSession.tools,
+            composioSessionId: supportSession.sessionId,
+            composioUserId: supportSession.userId,
+            debugFields,
+            attachments,
+          })
+        );
 
         await sendLongChannelMessage(thread, privateAnswer);
         return;
@@ -280,17 +283,19 @@ export const registerSupportListeners = (
       const supportSession = isPrivateThread(message)
         ? await sessions.getSupportSession()
         : undefined;
-      const answer = await runSupportAgent({
-        customerMessage: latestCustomerMessage,
-        discordContext,
-        discordMessageUrl: message.url,
-        mode: isPrivateThread(message) ? "private" : "public",
-        tools: supportSession?.tools,
-        composioSessionId: supportSession?.sessionId,
-        composioUserId: supportSession?.userId,
-        debugFields,
-        attachments,
-      });
+      const answer = await withTypingHeartbeat(channel, () =>
+        runSupportAgent({
+          customerMessage: latestCustomerMessage,
+          discordContext,
+          discordMessageUrl: message.url,
+          mode: isPrivateThread(message) ? "private" : "public",
+          tools: supportSession?.tools,
+          composioSessionId: supportSession?.sessionId,
+          composioUserId: supportSession?.userId,
+          debugFields,
+          attachments,
+        })
+      );
 
       const chunks = splitDiscordMessage(answer);
       await thinking.edit(chunks.shift() ?? "I could not produce a response.");

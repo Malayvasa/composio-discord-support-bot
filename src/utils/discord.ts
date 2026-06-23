@@ -40,6 +40,34 @@ export const splitDiscordMessage = (text: string, maxLength = 1900) => {
   return chunks;
 };
 
+export const withTypingHeartbeat = async <T>(
+  channel: TextBasedChannel,
+  task: () => Promise<T>
+) => {
+  const sendTyping = async () => {
+    if (!("sendTyping" in channel) || typeof channel.sendTyping !== "function") {
+      return;
+    }
+
+    try {
+      await channel.sendTyping();
+    } catch (error) {
+      console.warn("[discord] failed to send typing indicator", error);
+    }
+  };
+
+  await sendTyping();
+  const interval = setInterval(() => {
+    void sendTyping();
+  }, 8_000);
+
+  try {
+    return await task();
+  } finally {
+    clearInterval(interval);
+  }
+};
+
 export const formatMessageForContext = (message: Message) => {
   const author = message.author.bot
     ? `${message.author.username} (bot)`
