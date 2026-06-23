@@ -63,7 +63,9 @@ export const parseDebugFields = (message: string): DebugFields => {
   const fields: DebugFields = {};
 
   for (const line of message.split(/\r?\n/)) {
-    const match = line.match(/^\s*@([a-zA-Z0-9_\-\s]+)\s*:\s*(.+?)\s*$/);
+    const match =
+      line.match(/(?:^|[\s:])@([a-zA-Z0-9_-]+)\s*:\s*(.+?)\s*$/) ??
+      line.match(/(?:^|[\s:])@([a-zA-Z0-9_-]+)\s+(\S+)\s*$/);
 
     if (!match) {
       continue;

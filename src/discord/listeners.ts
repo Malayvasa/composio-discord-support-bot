@@ -45,6 +45,19 @@ const privateProgressStates = [
   "Preparing the reply.",
 ];
 
+const mergeDebugFields = (
+  context: string,
+  latestCustomerMessage: string,
+  includeContext: boolean
+) => ({
+  ...(includeContext ? parseDebugFields(context) : {}),
+  ...parseDebugFields(latestCustomerMessage),
+});
+
+const isPrivateThreadBump = (message: string) =>
+  isGenericDiagnosticsFollowup(message) ||
+  /^(?:\?+|hi\??|hey\??|hello\??|bro\??|ping\??)$/i.test(message.trim());
+
 export const registerSupportListeners = (
   client: Client,
   sessions: SupportSessionManager
@@ -90,7 +103,21 @@ export const registerSupportListeners = (
       const discordContext = await buildDiscordContext(channel, message);
       const latestCustomerMessage =
         customerMessage || "[attachment-only support request]";
-      const debugFields = parseDebugFields(latestCustomerMessage);
+      const debugFields = mergeDebugFields(
+        discordContext,
+        latestCustomerMessage,
+        isPrivateThread(message)
+      );
+
+      if (
+        isPrivateThread(message) &&
+        !hasAttachments &&
+        isPrivateThreadBump(latestCustomerMessage)
+      ) {
+        await thinking.delete().catch(() => undefined);
+        return;
+      }
+
       const decision = classifyPrivacy(latestCustomerMessage, debugFields, {
         hasAttachments,
       });
