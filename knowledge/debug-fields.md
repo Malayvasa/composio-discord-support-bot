@@ -4,7 +4,7 @@ Users can include structured debug clues in any support message. These fields ar
 
 The bot also extracts common free-form clues, such as a `Request IDs:` block,
 Composio tool execution log IDs like `log_...`, `Tooling area: ...`,
-`Status: 400`, `Code: ...`, and `Slug: ...`.
+connected account IDs like `ca_...`, `Status: 400`, `Code: ...`, and `Slug: ...`.
 Structured fields are preferred, but customers do not need to rewrite a natural
 support report into a form.
 
@@ -49,7 +49,7 @@ Where users can find clues:
 - Project ID: Composio dashboard project URL/settings.
 - Org ID: Composio dashboard org/workspace settings or URL.
 - User ID: The app's user identifier passed to `composio.create(userId)`.
-- Connected account ID: Composio dashboard connected accounts page or tool error details.
+- Connected account ID: Composio dashboard connected accounts page or tool error details. If this is supplied, the bot should resolve the connected account record before asking for project or org details.
 - Toolkit/tool slug: SDK code, tool call logs, or Composio tool execution output.
 - Time window: User report timestamp, incident timeline, or log timestamp.
 

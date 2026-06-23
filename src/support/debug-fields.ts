@@ -35,7 +35,11 @@ const aliases: Record<string, DebugFieldKey> = {
   toolkit: "toolkit",
   tool: "tool",
   tool_slug: "tool",
+  connected_account: "connected_account_id",
   connected_account_id: "connected_account_id",
+  connectedaccountid: "connected_account_id",
+  connection_id: "connected_account_id",
+  connectionid: "connected_account_id",
   ca_id: "connected_account_id",
   session_id: "session_id",
   request_id: "request_id",
@@ -102,6 +106,18 @@ export const parseDebugFields = (message: string): DebugFields => {
 
     if (logIds.length > 0) {
       fields.log_id = Array.from(new Set(logIds)).join(", ");
+    }
+  }
+
+  if (!fields.connected_account_id) {
+    const connectedAccountIds = Array.from(
+      message.matchAll(/\bca_[A-Za-z0-9_-]+\b/g)
+    ).map(([connectedAccountId]) => connectedAccountId);
+
+    if (connectedAccountIds.length > 0) {
+      fields.connected_account_id = Array.from(
+        new Set(connectedAccountIds)
+      ).join(", ");
     }
   }
 

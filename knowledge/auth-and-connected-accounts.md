@@ -18,7 +18,7 @@ For customer-owned toolkits, such as a customer's Gmail or GitHub in their own a
 
 - The app's Composio user ID.
 - Toolkit slug.
-- Connected account ID if known.
+- Connected account ID if known. A `ca_...` connected account ID is enough to look up the connected account metadata first; do not ask for project ID, org ID, user ID, toolkit, auth config, or status before trying that lookup.
 - Auth config ID only when debugging custom auth.
 - Error text and timestamp.
 
@@ -27,6 +27,11 @@ connected-account state, and operational history for customer-owned toolkit
 failures. Only suggest enabling provider toolkits such as GitHub, Gmail, Slack,
 or Linear on the support identity when the support workflow needs to perform
 provider actions itself, such as creating an issue or sending a notification.
+
+When a connected account ID is supplied, resolve that record first. Use its
+project/user/toolkit/auth/status metadata for the next diagnostic step, then ask
+for another identifier only if the lookup fails or does not include the tenant
+context needed by the internal tool.
 
 Before suggesting a fix, classify the auth path:
 

@@ -3,6 +3,33 @@ import { tool, type ToolSet } from "ai";
 import { z } from "zod";
 import { config } from "../config.js";
 
+const SENSITIVE_KEY_PATTERN =
+  /(?:token|secret|credential|password|api[_-]?key|access[_-]?key|refresh[_-]?key|private[_-]?key|client[_-]?secret|authorization|cookie|bearer)/i;
+
+const sanitizeForSupport = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeForSupport);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(
+      ([key, nestedValue]) => [
+        key,
+        SENSITIVE_KEY_PATTERN.test(key)
+          ? "[redacted]"
+          : sanitizeForSupport(nestedValue),
+      ]
+    )
+  );
+};
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 export interface SupportComposioSession {
   userId: string;
   sessionId: string;
@@ -21,6 +48,7 @@ export class SupportSessionManager {
       userId,
       toolkits: config.composioToolkits,
       label: "support",
+      includeConnectedAccountLookup: true,
     });
   }
 
@@ -29,6 +57,7 @@ export class SupportSessionManager {
       userId,
       toolkits: config.publicDocsToolkits,
       label: "public docs",
+      includeConnectedAccountLookup: false,
     });
   }
 
@@ -36,28 +65,41 @@ export class SupportSessionManager {
     userId,
     toolkits,
     label,
+    includeConnectedAccountLookup,
   }: {
     userId: string;
     toolkits: string[];
     label: string;
+    includeConnectedAccountLookup: boolean;
   }) {
-    const cacheKey = `${userId}:${toolkits.join(",")}:${label}`;
+    const cacheKey = `${userId}:${toolkits.join(",")}:${label}:${includeConnectedAccountLookup}`;
     const cached = this.sessions.get(cacheKey);
 
     if (cached) {
       return cached;
     }
 
-    const sessionPromise = this.createSession(userId, toolkits, label);
+    const sessionPromise = this.createSession({
+      userId,
+      toolkits,
+      label,
+      includeConnectedAccountLookup,
+    });
     this.sessions.set(cacheKey, sessionPromise);
     return sessionPromise;
   }
 
-  private async createSession(
-    userId: string,
-    toolkits: string[],
-    label: string
-  ): Promise<SupportComposioSession> {
+  private async createSession({
+    userId,
+    toolkits,
+    label,
+    includeConnectedAccountLookup,
+  }: {
+    userId: string;
+    toolkits: string[];
+    label: string;
+    includeConnectedAccountLookup: boolean;
+  }): Promise<SupportComposioSession> {
     const session = await this.composio.create(userId, {
       toolkits: {
         enable: toolkits,
@@ -122,6 +164,45 @@ export class SupportSessionManager {
           }),
       }),
     };
+
+    if (includeConnectedAccountLookup) {
+      tools.lookupComposioConnectedAccount = tool({
+        description:
+          "Retrieve sanitized Composio connected-account metadata by connected account ID. Use this in private support mode whenever a user provides ca_... or connectionId before asking for project_id, org_id, user_id, toolkit, status, or auth config details.",
+        inputSchema: z.object({
+          connectedAccountId: z
+            .string()
+            .regex(/^ca_[A-Za-z0-9_-]+$/)
+            .describe("Connected account ID, for example ca_abc123."),
+        }),
+        execute: async ({ connectedAccountId }) => {
+          try {
+            const account =
+              await this.composio.connectedAccounts.get(connectedAccountId);
+            const safeAccount = sanitizeForSupport(account) as Record<
+              string,
+              unknown
+            >;
+
+            return {
+              found: true,
+              connectedAccountId,
+              account: safeAccount,
+              guidance:
+                "Use this connected-account metadata as the primary source for project/user/toolkit/auth context. Ask for project_id or org_id only if the retrieved metadata and available diagnostics still cannot resolve the needed tenant context.",
+            };
+          } catch (error) {
+            return {
+              found: false,
+              connectedAccountId,
+              error: errorMessage(error),
+              guidance:
+                "Say the connected account lookup was unavailable or not found before asking for another identifier. If needed, ask for project_id/org_id as a fallback.",
+            };
+          }
+        },
+      });
+    }
 
     console.log(`[composio] ${label} session ready`, {
       userId,

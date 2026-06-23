@@ -13,6 +13,7 @@ Good Metabase questions:
 
 - Does this Composio user ID have a connected account for the toolkit?
 - Did this connected account recently fail auth refresh?
+- What project, user, toolkit, auth config, status, and refresh history belong to this connected account ID?
 - Are there recent tool executions for this session or user?
 - Is the issue isolated to a toolkit, auth config, or customer workspace?
 
