@@ -126,6 +126,10 @@ In short:
 6. Private diagnostics use the tools your support team connected in Composio.
 7. Discord replies suppress URL embeds by default to keep support threads readable.
 
+Datadog and Metabase are optional private support tools in this example. They
+are connected by the support team, not by Discord customers, and the bot only
+uses them inside private staff threads.
+
 Private-thread triggers include real organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, Composio log IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, internal logs, explicit log checks, and database queries.
 File attachments also trigger a private thread.
 
@@ -198,7 +202,20 @@ context from nearby support tests or unrelated messages.
 
 ## Bring Your Own Datadog And Metabase
 
-This repo does not hard-code Composio's internal dashboards or logs.
+This repo does not hard-code Composio's internal dashboards or logs. Datadog and
+Metabase are included to show the pattern: connect the private tools your
+support team already uses, then let the bot call them only after a case has
+moved into a private diagnostics thread.
+
+Datadog and Metabase are examples of private support tools:
+
+- Datadog is useful for logs, traces, errors, latency, and incident checks.
+- Metabase is useful for support dashboards, account state, usage, or other
+  internal operational views.
+- Customers do not connect either tool. The support team connects them once for
+  `SUPPORT_SESSION_USER_ID`.
+- If your team uses different systems, replace these toolkit slugs with your
+  own log, dashboard, CRM, ticketing, or database tools.
 
 To use your own diagnostics:
 
