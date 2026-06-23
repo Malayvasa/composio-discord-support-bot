@@ -7,8 +7,8 @@
   "scripts": {
     "connect:toolkits": "tsx scripts/connect-support-toolkits.ts",
     "dev": "tsx watch src/index.ts",
-    "eval:support": "tsx scripts/evaluate-support-forum.ts",
-    "eval:support-forum": "tsx scripts/evaluate-support-forum.ts",
+    "eval:support": "tsx eval/evaluate-support-forum.ts",
+    "eval:support-forum": "tsx eval/evaluate-support-forum.ts",
     "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit"
   },

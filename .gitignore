@@ -3,4 +3,6 @@ dist
 .env
 .DS_Store
 *.log
-eval/
+eval/*
+!eval/evaluate-support-forum.ts
+!eval/support-forum-eval-design.md
