@@ -29,6 +29,13 @@ const envSchema = z.object({
     .default("false"),
   DISCORD_CONTEXT_LIMIT: z.coerce.number().int().min(1).max(50).default(12),
   MAX_AGENT_STEPS: z.coerce.number().int().min(1).max(25).default(10),
+  ATTACHMENT_MAX_FILES: z.coerce.number().int().min(1).max(10).default(5),
+  ATTACHMENT_MAX_BYTES: z.coerce.number().int().min(1).default(1_000_000),
+  ATTACHMENT_TEXT_MAX_CHARS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(12_000),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -58,4 +65,7 @@ export const config = {
   composioWorkbenchEnabled: env.COMPOSIO_WORKBENCH_ENABLED === "true",
   discordContextLimit: env.DISCORD_CONTEXT_LIMIT,
   maxAgentSteps: env.MAX_AGENT_STEPS,
+  attachmentMaxFiles: env.ATTACHMENT_MAX_FILES,
+  attachmentMaxBytes: env.ATTACHMENT_MAX_BYTES,
+  attachmentTextMaxChars: env.ATTACHMENT_TEXT_MAX_CHARS,
 };

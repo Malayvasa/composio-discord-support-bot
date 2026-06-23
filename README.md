@@ -16,6 +16,8 @@ Customers in Discord do not connect your internal tools. Your support team conne
 
 Private diagnostics never run directly in public channels. If a request includes private identifiers or asks for internal diagnostics, the bot creates a private staff thread, adds the configured staff users, and only then uses Composio tools.
 
+File attachments are treated as private by default. The bot opens a private staff thread before reading small text-like files or summarizing attachment context.
+
 ## Setup
 
 Install dependencies:
@@ -87,8 +89,26 @@ The bot needs Discord permissions to send messages, create private threads, and 
 8. The public channel only receives safe acknowledgements or sanitized follow-ups.
 
 Private-thread triggers include organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, logs, dashboards, and database queries.
+File attachments also trigger a private thread.
 
 Private thread names use the configured prefix, routing category, and the best available debug clue, such as `support-debug-account-ok-waou8bjo73ly` or `support-debug-infra-pr-xtim-6kfdiir`.
+
+## File Attachments
+
+The bot supports Discord attachments in support messages:
+
+- In public channels, attachments always move the request into a private diagnostics thread.
+- In private threads, staff can attach screenshots, logs, JSON, CSV, Markdown, or text files.
+- Small text-like files are fetched and passed to the private agent for summarization.
+- Large files and binary files are preserved as metadata and Discord links.
+
+Tune limits with:
+
+```txt
+ATTACHMENT_MAX_FILES=5
+ATTACHMENT_MAX_BYTES=1000000
+ATTACHMENT_TEXT_MAX_CHARS=12000
+```
 
 ## Optional Debug Fields
 

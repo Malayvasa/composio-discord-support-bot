@@ -8,6 +8,10 @@ import { config } from "../config.js";
 import type { SupportSessionManager } from "../composio/session.js";
 import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
+import {
+  collectSupportAttachments,
+  formatAttachmentMetadata,
+} from "../support/attachments.js";
 import { formatDebugFields, parseDebugFields } from "../support/debug-fields.js";
 import { classifyPrivacy, isConfiguredStaffUser } from "../support/privacy.js";
 import {
@@ -126,8 +130,9 @@ export const registerSupportListeners = (
     }
 
     const customerMessage = cleanCustomerMessage(client, message);
+    const hasAttachments = message.attachments.size > 0;
 
-    if (!customerMessage) {
+    if (!customerMessage && !hasAttachments) {
       await sendLongReply(
         message,
         "Tell me what is going wrong, and include a request ID, trace ID, toolkit slug, or timeframe if you have one."
@@ -149,8 +154,12 @@ export const registerSupportListeners = (
     try {
       await channel.sendTyping();
       const discordContext = await getDiscordContext(channel, message);
-      const debugFields = parseDebugFields(customerMessage);
-      const decision = classifyPrivacy(customerMessage, debugFields);
+      const latestCustomerMessage =
+        customerMessage || "[attachment-only support request]";
+      const debugFields = parseDebugFields(latestCustomerMessage);
+      const decision = classifyPrivacy(latestCustomerMessage, debugFields, {
+        hasAttachments,
+      });
 
       if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
         const thread = await createPrivateInvestigationThread(
@@ -171,6 +180,8 @@ export const registerSupportListeners = (
           ].join("\n")
         );
 
+        const attachments = await collectSupportAttachments(message);
+
         await thread.send({
           content: [
             staffMentions,
@@ -183,13 +194,16 @@ export const registerSupportListeners = (
             "",
             "Parsed @debug fields:",
             formatDebugFields(debugFields),
+            "",
+            "Attachments:",
+            formatAttachmentMetadata(attachments),
           ].join("\n"),
           allowedMentions: { users: decision.staffUserIds },
         });
 
         const supportSession = await sessions.getSupportSession();
         const privateAnswer = await runSupportAgent({
-          customerMessage,
+          customerMessage: latestCustomerMessage,
           discordContext,
           discordMessageUrl: message.url,
           mode: "private",
@@ -197,17 +211,19 @@ export const registerSupportListeners = (
           composioSessionId: supportSession.sessionId,
           composioUserId: supportSession.userId,
           debugFields,
+          attachments,
         });
 
         await sendLongChannelMessage(thread, privateAnswer);
         return;
       }
 
+      const attachments = await collectSupportAttachments(message);
       const supportSession = isPrivateThread(message)
         ? await sessions.getSupportSession()
         : undefined;
       const answer = await runSupportAgent({
-        customerMessage,
+        customerMessage: latestCustomerMessage,
         discordContext,
         discordMessageUrl: message.url,
         mode: isPrivateThread(message) ? "private" : "public",
@@ -215,6 +231,7 @@ export const registerSupportListeners = (
         composioSessionId: supportSession?.sessionId,
         composioUserId: supportSession?.userId,
         debugFields,
+        attachments,
       });
 
       const chunks = splitDiscordMessage(answer);

@@ -10,6 +10,10 @@ export interface PrivacyDecision {
   staffUserIds: string[];
 }
 
+export interface PrivacyContext {
+  hasAttachments?: boolean;
+}
+
 const unique = (values: string[]) => Array.from(new Set(values.filter(Boolean)));
 
 export const getConfiguredStaffUserIds = () =>
@@ -41,7 +45,8 @@ const routeStaff = (route: IssueRoute) => {
 
 export const classifyPrivacy = (
   message: string,
-  debugFields: DebugFields = {}
+  debugFields: DebugFields = {},
+  context: PrivacyContext = {}
 ): PrivacyDecision => {
   const normalized = message.toLowerCase();
   const reasons: string[] = [];
@@ -64,6 +69,10 @@ export const classifyPrivacy = (
     if (pattern.test(message)) {
       reasons.push(reason);
     }
+  }
+
+  if (context.hasAttachments) {
+    reasons.push("file attachment");
   }
 
   const privateFieldReasons: Partial<Record<keyof DebugFields, string>> = {
@@ -97,6 +106,10 @@ export const classifyPrivacy = (
   } else if (/\b(datadog|logs?|trace|5\d\d|latency|timeout|incident|production|staging)\b/i.test(routeText)) {
     route = "infra";
   } else if (/\b(metabase|dashboard|query|analytics|database|org_|user_|session)\b/i.test(routeText)) {
+    route = "diagnostics";
+  }
+
+  if (route === "default" && context.hasAttachments) {
     route = "diagnostics";
   }
 

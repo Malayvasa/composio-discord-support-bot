@@ -1,6 +1,10 @@
 import { openai } from "@ai-sdk/openai";
 import { generateText, stepCountIs, type ModelMessage, type ToolSet } from "ai";
 import { config } from "../config.js";
+import {
+  formatAttachmentsForAgent,
+  type SupportAttachment,
+} from "./attachments.js";
 import { formatDebugFields, type DebugFields } from "./debug-fields.js";
 import { loadRunbooks } from "./runbooks.js";
 
@@ -20,6 +24,7 @@ export interface SupportTurnInput {
   composioSessionId?: string;
   composioUserId?: string;
   debugFields?: DebugFields;
+  attachments?: SupportAttachment[];
 }
 
 const buildSystemPrompt = async (mode: "public" | "private") => {
@@ -54,11 +59,12 @@ Mode:
 ${modeInstructions}
 
 When responding:
-- Be concise.
+- Be concise. Public replies should usually be 2-5 lines. Private diagnostics should use short sections only when useful.
 - Start with the likely issue or next step.
 - If you used tools, summarize what you checked.
-- If you need more information, ask for at most three specific items.
+- If you need more information, ask for one specific item unless several are truly blocking.
 - If escalating, include an evidence bundle that a teammate can act on.
+- Do not paste long raw logs or file contents back into Discord. Summarize the relevant signal and cite the attachment name.
 
 Runbooks:
 ${runbooks}`;
@@ -73,6 +79,7 @@ export const runSupportAgent = async ({
   composioSessionId,
   composioUserId,
   debugFields,
+  attachments = [],
 }: SupportTurnInput) => {
   const system = await buildSystemPrompt(mode);
 
@@ -88,6 +95,9 @@ export const runSupportAgent = async ({
         "",
         "Parsed optional @debug fields:",
         formatDebugFields(debugFields ?? {}),
+        "",
+        "Discord attachments:",
+        formatAttachmentsForAgent(attachments),
         "",
         "Recent Discord context:",
         discordContext,

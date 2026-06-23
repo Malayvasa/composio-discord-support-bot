@@ -46,6 +46,16 @@ export const formatMessageForContext = (message: Message) => {
     : message.author.username;
   const timestamp = message.createdAt.toISOString();
   const content = message.content || "[no text content]";
+  const attachments = Array.from(message.attachments.values());
+  const attachmentContext =
+    attachments.length > 0
+      ? ` [attachments: ${attachments
+          .map((attachment) => {
+            const type = attachment.contentType ?? "unknown";
+            return `${attachment.name} (${type}, ${attachment.size} bytes)`;
+          })
+          .join("; ")}]`
+      : "";
 
-  return `[${timestamp}] ${author}: ${content}`;
+  return `[${timestamp}] ${author}: ${content}${attachmentContext}`;
 };
