@@ -9,6 +9,25 @@ Triage every message into one of these buckets:
 - Incident: collect impact, status codes, route, environment, and time window.
 - Feature request: summarize desired outcome and create or suggest a ticket.
 
+Privacy rule:
+
+- Public Discord is for triage and safe guidance only.
+- Private identifiers and internal diagnostics require a private staff thread.
+- Do not run Datadog, Metabase, logs, dashboards, or internal account lookups in public.
+- If a private thread cannot be created or the right staff cannot be added, stop and fail closed.
+
+Private-thread triggers include:
+
+- Organization IDs.
+- User IDs.
+- Session IDs.
+- Connected account IDs.
+- Auth config IDs.
+- Request IDs.
+- Trace IDs.
+- Email addresses.
+- Datadog, Metabase, logs, dashboards, or database queries.
+
 First response pattern:
 
 1. State what you think is happening.
@@ -30,4 +49,3 @@ Time window:
 What was checked:
 Likely owner:
 ```
-

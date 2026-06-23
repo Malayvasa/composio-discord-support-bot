@@ -10,9 +10,11 @@ The bot listens in Discord, triages support requests, reads local Composio runbo
 - A support-team identity for internal tools.
 - Bring-your-own diagnostics through configurable toolkits such as Datadog and Metabase.
 - Runbook-grounded support behavior.
-- Discord support workflows: channel replies, DMs, mentions, and escalation summaries.
+- Discord support workflows: public triage, private diagnostics threads, staff routing, and escalation summaries.
 
 Customers in Discord do not connect your internal tools. Your support team connects tools for the configured support identity.
+
+Private diagnostics never run directly in public channels. If a request includes private identifiers or asks for internal diagnostics, the bot creates a private staff thread, adds the configured staff users, and only then uses Composio tools.
 
 ## Setup
 
@@ -43,6 +45,17 @@ COMPOSIO_TOOLKITS=github,linear,slack,gmail,datadog,metabase
 SUPPORT_SESSION_USER_ID=support-team
 ```
 
+Configure who gets added to private diagnostics threads:
+
+```txt
+DEFAULT_STAFF_USER_IDS=111111111111111111,222222222222222222
+AUTH_STAFF_USER_IDS=333333333333333333
+BILLING_STAFF_USER_IDS=444444444444444444
+INFRA_STAFF_USER_IDS=555555555555555555
+DIAGNOSTICS_STAFF_USER_IDS=666666666666666666
+PRIVATE_THREAD_NAME_PREFIX=support-debug
+```
+
 If your team uses different internal systems, replace the toolkit list with your own Composio toolkit slugs.
 
 ## Run
@@ -60,14 +73,32 @@ The bot responds to:
 
 For production servers, set `SUPPORT_CHANNEL_IDS` so the bot only watches support channels.
 
+The bot needs Discord permissions to send messages, create private threads, and add members to private threads. If it cannot create the thread or add the right staff users, it fails closed and does not run diagnostics. Follow-up commands inside private diagnostics threads only run for configured staff users.
+
 ## Support Flow
 
 1. A customer posts a support issue in Discord.
 2. The bot reads recent Discord context.
 3. The bot loads runbooks from `knowledge/`.
-4. The bot creates or reuses a Composio support session.
-5. The agent uses configured tools when diagnostics are needed.
-6. The bot replies with a fix, a targeted question, or an escalation bundle.
+4. If the request is public-safe, the bot responds without internal diagnostic tools.
+5. If the request includes private identifiers or diagnostics, the bot creates a private staff thread and adds routed staff users.
+6. Inside the private thread, the bot creates or reuses a Composio support session.
+7. The private agent uses configured tools when diagnostics are needed.
+8. The public channel only receives safe acknowledgements or sanitized follow-ups.
+
+Private-thread triggers include organization IDs, user IDs, session IDs, connected account IDs, auth config IDs, request IDs, trace IDs, UUIDs, email addresses, Datadog, Metabase, logs, dashboards, and database queries.
+
+## Staff Routing
+
+Routing is intentionally simple and env-based for the public example:
+
+- Auth, OAuth, connected account, token, scope, 401, or 403 issues route to `AUTH_STAFF_USER_IDS`.
+- Billing, invoice, subscription, payment, Stripe, refund, or plan issues route to `BILLING_STAFF_USER_IDS`.
+- Datadog, logs, traces, 5xx, latency, timeout, incident, production, or staging issues route to `INFRA_STAFF_USER_IDS`.
+- Metabase, dashboard, query, analytics, org, user, or session lookups route to `DIAGNOSTICS_STAFF_USER_IDS`.
+- Every private thread also includes `DEFAULT_STAFF_USER_IDS`.
+
+If no users resolve for a route, diagnostics do not run.
 
 ## Bring Your Own Datadog And Metabase
 
@@ -78,6 +109,7 @@ To use your own diagnostics:
 1. Keep `datadog` and `metabase` in `COMPOSIO_TOOLKITS`, or replace them with your internal toolkit slugs.
 2. Connect those tools in Composio for `SUPPORT_SESSION_USER_ID`.
 3. Edit `knowledge/diagnostics/*.md` with your team's dashboard names, log fields, and escalation rules.
+4. Configure staff user IDs so private investigations reach the right people.
 
 The bot will use the tools exposed by `session.tools()` and the guidance in the runbooks.
 
@@ -85,9 +117,12 @@ The bot will use the tools exposed by `session.tools()` and the guidance in the 
 
 - `src/composio/session.ts`: Composio Sessions setup.
 - `src/support/agent.ts`: Support agent prompt and AI SDK call.
+- `src/support/privacy.ts`: Private diagnostics classifier and staff routing.
 - `src/discord/listeners.ts`: Discord message handling.
+- `src/discord/private-thread.ts`: Private thread creation and staff member adds.
 - `knowledge/`: Support and diagnostics runbooks.
 - `docs/plans/2026-06-22-customer-support-bot-design.md`: Design note.
+- `docs/plans/2026-06-22-private-diagnostics-threads-design.md`: Private diagnostics design note.
 
 ## Current Composio Pattern
 
@@ -102,4 +137,3 @@ const tools = await session.tools();
 ```
 
 Use this pattern for new Composio examples. Avoid older tool-router examples unless you are maintaining legacy code.
-

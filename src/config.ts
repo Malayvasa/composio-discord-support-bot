@@ -15,6 +15,12 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(5432),
   SUPPORT_SESSION_USER_ID: z.string().default("support-team"),
   SUPPORT_CHANNEL_IDS: z.string().optional(),
+  DEFAULT_STAFF_USER_IDS: z.string().optional(),
+  AUTH_STAFF_USER_IDS: z.string().optional(),
+  BILLING_STAFF_USER_IDS: z.string().optional(),
+  INFRA_STAFF_USER_IDS: z.string().optional(),
+  DIAGNOSTICS_STAFF_USER_IDS: z.string().optional(),
+  PRIVATE_THREAD_NAME_PREFIX: z.string().default("support-debug"),
   COMPOSIO_TOOLKITS: z
     .string()
     .default("github,linear,slack,gmail,datadog,metabase"),
@@ -42,9 +48,14 @@ export const config = {
   port: env.PORT,
   supportSessionUserId: env.SUPPORT_SESSION_USER_ID,
   supportChannelIds: csv(env.SUPPORT_CHANNEL_IDS),
+  defaultStaffUserIds: csv(env.DEFAULT_STAFF_USER_IDS),
+  authStaffUserIds: csv(env.AUTH_STAFF_USER_IDS),
+  billingStaffUserIds: csv(env.BILLING_STAFF_USER_IDS),
+  infraStaffUserIds: csv(env.INFRA_STAFF_USER_IDS),
+  diagnosticsStaffUserIds: csv(env.DIAGNOSTICS_STAFF_USER_IDS),
+  privateThreadNamePrefix: env.PRIVATE_THREAD_NAME_PREFIX,
   composioToolkits: csv(env.COMPOSIO_TOOLKITS),
   composioWorkbenchEnabled: env.COMPOSIO_WORKBENCH_ENABLED === "true",
   discordContextLimit: env.DISCORD_CONTEXT_LIMIT,
   maxAgentSteps: env.MAX_AGENT_STEPS,
 };
-

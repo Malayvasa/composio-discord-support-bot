@@ -2,6 +2,8 @@
 
 Use Metabase for support-safe operational lookups such as account state, session state, connected account status, usage patterns, and historical counts.
 
+Metabase diagnostics must only run in a private staff diagnostics thread. Do not expose private account rows, customer data, or raw query results in public Discord.
+
 Good Metabase questions:
 
 - Does this Composio user ID have a connected account for the toolkit?
@@ -10,4 +12,3 @@ Good Metabase questions:
 - Is the issue isolated to a toolkit, auth config, or customer workspace?
 
 Only query the minimum data needed for support. Summarize findings without exposing private customer data.
-

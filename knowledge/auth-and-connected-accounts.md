@@ -23,3 +23,4 @@ For customer-owned toolkits, such as a customer's Gmail or GitHub in their own a
 
 Never paste OAuth tokens, API keys, or secret headers into Discord.
 
+If debugging uses a customer email, organization ID, connected account ID, auth config ID, request ID, or trace ID, move the investigation to a private staff diagnostics thread before using internal tools.

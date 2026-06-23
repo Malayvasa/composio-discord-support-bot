@@ -1,7 +1,14 @@
-import type { Client, Message, TextBasedChannel } from "discord.js";
+import {
+  ChannelType,
+  type Client,
+  type Message,
+  type TextBasedChannel,
+} from "discord.js";
 import { config } from "../config.js";
 import type { SupportSessionManager } from "../composio/session.js";
+import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
+import { classifyPrivacy, isConfiguredStaffUser } from "../support/privacy.js";
 import {
   formatMessageForContext,
   isFetchableMessageChannel,
@@ -9,9 +16,19 @@ import {
   splitDiscordMessage,
 } from "../utils/discord.js";
 
+const isPrivateThread = (message: Message) =>
+  message.channel.type === ChannelType.PrivateThread;
+
 const shouldRespond = (client: Client, message: Message) => {
   if (message.author.bot) {
     return false;
+  }
+
+  if (isPrivateThread(message)) {
+    return (
+      isConfiguredStaffUser(message.author.id) &&
+      message.content.trim().startsWith("!support")
+    );
   }
 
   if (!message.guild) {
@@ -80,6 +97,24 @@ const sendLongReply = async (message: Message, text: string) => {
   }
 };
 
+const sendLongChannelMessage = async (
+  channel: TextBasedChannel,
+  text: string
+) => {
+  if (!isSendableChannel(channel)) {
+    return;
+  }
+
+  const chunks = splitDiscordMessage(text);
+
+  for (const chunk of chunks) {
+    await channel.send({
+      content: chunk,
+      allowedMentions: { users: [] },
+    });
+  }
+};
+
 export const registerSupportListeners = (
   client: Client,
   sessions: SupportSessionManager
@@ -112,13 +147,56 @@ export const registerSupportListeners = (
 
     try {
       await channel.sendTyping();
-      const supportSession = await sessions.getSupportSession();
       const discordContext = await getDiscordContext(channel, message);
+      const decision = classifyPrivacy(customerMessage);
+
+      if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
+        const thread = await createPrivateInvestigationThread(message, decision);
+        const staffMentions = decision.staffUserIds
+          .map((userId) => `<@${userId}>`)
+          .join(" ");
+
+        await thinking.edit(
+          [
+            "This may involve private account, org, log, or diagnostics data.",
+            "I opened a private staff investigation thread and will keep public updates sanitized.",
+          ].join("\n")
+        );
+
+        await thread.send({
+          content: [
+            staffMentions,
+            "",
+            "Private support investigation started.",
+            `Public message: ${message.url}`,
+            `Route: ${decision.route}`,
+            `Privacy reasons: ${decision.reasons.join(", ")}`,
+          ].join("\n"),
+          allowedMentions: { users: decision.staffUserIds },
+        });
+
+        const supportSession = await sessions.getSupportSession();
+        const privateAnswer = await runSupportAgent({
+          customerMessage,
+          discordContext,
+          discordMessageUrl: message.url,
+          mode: "private",
+          tools: supportSession.tools,
+        });
+
+        await sendLongChannelMessage(thread, privateAnswer);
+        return;
+      }
+
+      const supportSession = isPrivateThread(message)
+        ? await sessions.getSupportSession()
+        : undefined;
       const answer = await runSupportAgent({
         customerMessage,
         discordContext,
         discordMessageUrl: message.url,
-        tools: supportSession.tools,
+        mode: isPrivateThread(message) ? "private" : "public",
+        tools: supportSession?.tools,
       });
 
       const chunks = splitDiscordMessage(answer);
@@ -134,11 +212,10 @@ export const registerSupportListeners = (
       console.error("[discord] failed to process support message", error);
       await thinking.edit(
         [
-          "I hit an error while investigating this.",
-          "Please include the request ID, trace ID, toolkit slug, environment, and timeframe, then a teammate can continue from there.",
+          "I could not safely start the private diagnostics flow, so I did not run internal tool checks.",
+          "Please ask a support admin to verify private thread permissions and staff routing env vars.",
         ].join("\n")
       );
     }
   });
 };
-

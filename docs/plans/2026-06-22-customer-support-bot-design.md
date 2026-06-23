@@ -79,8 +79,9 @@ The bot should:
 - Tell the user when support tools are not connected or unavailable.
 - Fall back to runbook-based guidance when tools fail.
 - Escalate when there is a production 5xx, security concern, billing impact, customer-blocking auth failure, or repeated incident pattern.
+- Run private diagnostics only in private Discord threads with the right staff users added.
+- Fail closed if a private diagnostics thread cannot be created or routed.
 
 ## Testing
 
 The first version should pass TypeScript checking. Runtime testing requires real Discord, model, and Composio credentials.
-
