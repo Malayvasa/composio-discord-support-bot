@@ -112,8 +112,8 @@ flowchart TD
   K --> L["Post a safe private update"]
 
   H --> M["Public channel gets sanitized thread link only"]
-  G --> N{"Thread/staff setup fails?"}
-  N -->|Yes| O["Fail closed; no internal tools run"]
+  G --> N{"Private thread setup works?"}
+  N -->|No| O["Stop before using private tools"]
 ```
 
 In short:
