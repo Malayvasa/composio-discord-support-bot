@@ -4,12 +4,13 @@ import type { SupportSessionManager } from "../composio/session.js";
 import {
   formatSupportCaseState,
   isDuplicateCaseReply,
+  isStaleConfirmationRequest,
   upsertSupportCaseState,
 } from "./case-state.js";
 import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
 import { collectSupportAttachments } from "../support/attachments.js";
-import { parseDebugFields } from "../support/debug-fields.js";
+import { parseDebugFields, type DebugFieldKey } from "../support/debug-fields.js";
 import { classifyPrivacy } from "../support/privacy.js";
 import { isSendableChannel, withTypingHeartbeat } from "../utils/discord.js";
 import {
@@ -62,6 +63,21 @@ const mergeDebugFields = (
 const isPrivateThreadBump = (message: string) =>
   isGenericDiagnosticsFollowup(message) ||
   /^(?:\?+|hi\??|hey\??|hello\??|bro\??|ping\??)$/i.test(message.trim());
+
+const isAffirmativeConfirmation = (message: string) =>
+  /^(?:yes|yep|yeah|correct|confirmed|yes confirmed|that's right|that is right|looks right|right)\.?!?$/i.test(
+    message.trim()
+  );
+
+const confirmedFieldsFrom = (
+  fields: ReturnType<typeof parseDebugFields>,
+  latestCustomerMessage: string
+): DebugFieldKey[] =>
+  isAffirmativeConfirmation(latestCustomerMessage)
+    ? (Object.keys(fields).filter(
+        (field) => fields[field as DebugFieldKey]
+      ) as DebugFieldKey[])
+    : [];
 
 const buildPrivateAgentContext = (
   caseState: ReturnType<typeof upsertSupportCaseState>,
@@ -265,6 +281,10 @@ export const registerSupportListeners = (
       const caseState = isPrivateThread(message)
         ? upsertSupportCaseState(message.channel.id, {
             fields: debugFields,
+            confirmedFields: confirmedFieldsFrom(
+              debugFields,
+              latestCustomerMessage
+            ),
             composioSessionId: supportSession?.sessionId,
             composioUserId: supportSession?.userId,
             lastCustomerMessage: latestCustomerMessage,
@@ -293,11 +313,20 @@ export const registerSupportListeners = (
 
       if (
         isPrivateThread(message) &&
-        isDuplicateCaseReply(message.channel.id, answer)
+        (isDuplicateCaseReply(message.channel.id, answer) ||
+          (caseState ? isStaleConfirmationRequest(caseState, answer) : false))
       ) {
+        const fallbackReply =
+          "Got it, I have that confirmed. I will continue from the case details above instead of asking for the same identifier again.";
+
+        if (caseState && isStaleConfirmationRequest(caseState, answer)) {
+          upsertSupportCaseState(message.channel.id, {
+            lastAssistantReply: fallbackReply,
+          });
+        }
+
         await thinking.edit({
-          content:
-            "I do not have a new update yet. Add the next detail here and I will continue from the case context above.",
+          content: fallbackReply,
           flags: MessageFlags.SuppressEmbeds,
         });
         return;
