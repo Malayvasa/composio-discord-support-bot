@@ -114,9 +114,6 @@ export const buildPrivateCaseContext = ({
     "**Case summary**",
     "",
     `**Route:** ${decision.route}`,
-    `**Why private:** ${
-      decision.reasons.length ? decision.reasons.join(", ") : "staff diagnostics"
-    }`,
     getChannelName(message)
       ? `**Source:** #${getChannelName(message)} - ${message.url}`
       : `**Source:** ${message.url}`,
