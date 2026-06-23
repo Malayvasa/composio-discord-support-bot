@@ -25,7 +25,7 @@ const envSchema = z.object({
   PRIVATE_THREAD_NAME_PREFIX: z.string().default("support-debug"),
   COMPOSIO_TOOLKITS: z
     .string()
-    .default("composio_search,github,linear,slack,gmail,datadog,metabase"),
+    .default("composio_search,datadog,metabase"),
   PUBLIC_DOCS_TOOLKITS: z.string().default("composio_search"),
   COMPOSIO_WORKBENCH_ENABLED: z
     .enum(["true", "false"])

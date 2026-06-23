@@ -44,7 +44,7 @@ OPENAI_API_KEY=...
 Choose your support toolkits:
 
 ```txt
-COMPOSIO_TOOLKITS=composio_search,github,linear,slack,gmail,datadog,metabase
+COMPOSIO_TOOLKITS=composio_search,datadog,metabase
 PUBLIC_DOCS_TOOLKITS=composio_search
 SUPPORT_SESSION_USER_ID=support-team
 ```
@@ -60,7 +60,7 @@ DIAGNOSTICS_STAFF_USER_IDS=666666666666666666
 PRIVATE_THREAD_NAME_PREFIX=support-debug
 ```
 
-If your team uses different internal systems, replace the toolkit list with your own Composio toolkit slugs.
+If your team uses different internal systems, replace the toolkit list with your own Composio toolkit slugs. Keep the default small while you are getting started, then add escalation toolkits such as GitHub, Linear, Slack, or Gmail only when the bot needs them.
 
 ## Run
 
@@ -137,8 +137,8 @@ Users can include structured clues in any support message:
 @user_id: user_123
 @environment: production
 @time_window: last 2 hours
-@toolkit: github
-@tool: GITHUB_CREATE_ISSUE
+@toolkit: datadog
+@tool: DATADOG_SEARCH_LOGS
 @error: 403 permission denied
 ```
 
@@ -170,6 +170,21 @@ To use your own diagnostics:
 4. Configure staff user IDs so private investigations reach the right people.
 
 The bot will use the tools exposed by `session.tools()` and the guidance in the runbooks.
+
+## Optional Escalation Toolkits
+
+The default setup keeps Composio tools focused on docs and diagnostics:
+
+```txt
+COMPOSIO_TOOLKITS=composio_search,datadog,metabase
+```
+
+Add extra toolkits when you want the bot to take follow-up actions:
+
+- `github`: look up or create engineering issues.
+- `linear`: file product and engineering escalation tickets.
+- `slack`: notify internal support or incident channels.
+- `gmail`: inspect support email context or draft follow-ups.
 
 ## Public Docs Search
 
@@ -238,7 +253,7 @@ EVAL_RESOLUTION_EVIDENCE_MAX_CHARS=60000
 const composio = new Composio({ provider: new VercelProvider() });
 const session = await composio.create("support-team", {
   toolkits: {
-    enable: ["github", "linear", "slack", "datadog", "metabase"],
+    enable: ["composio_search", "datadog", "metabase"],
   },
 });
 const tools = await session.tools();

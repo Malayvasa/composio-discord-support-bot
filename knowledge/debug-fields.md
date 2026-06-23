@@ -11,8 +11,8 @@ Example:
 @user_id: user_123
 @environment: production
 @time_window: last 2 hours
-@toolkit: github
-@tool: GITHUB_CREATE_ISSUE
+@toolkit: datadog
+@tool: DATADOG_SEARCH_LOGS
 @error: 403 permission denied
 ```
 
@@ -24,8 +24,8 @@ Supported clues:
 - `@user_id`: App/user/session owner ID. Useful for session and connected-account lookups.
 - `@environment`: production, staging, preview, local, or sandbox.
 - `@time_window`: A bounded window like `last 30 minutes` or `2026-06-23 01:00-01:30 UTC`.
-- `@toolkit`: Toolkit slug, such as `github`, `gmail`, `datadog`, or `metabase`.
-- `@tool`: Tool slug, such as `GITHUB_CREATE_ISSUE`.
+- `@toolkit`: Toolkit slug, such as `datadog`, `metabase`, or another support toolkit you enabled.
+- `@tool`: Tool slug, such as `DATADOG_SEARCH_LOGS`.
 - `@connected_account_id`: Connected account ID, usually starts with `ca_`.
 - `@session_id`: Composio session ID.
 - `@request_id`: API/log request ID.
