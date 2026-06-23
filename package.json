@@ -1,0 +1,29 @@
+{
+  "name": "composio-discord-support-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A Composio Sessions example for a Discord customer support bot with bring-your-own diagnostics tools.",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/openai": "^3.0.74",
+    "@composio/core": "^0.11.0",
+    "@composio/vercel": "^0.9.3",
+    "ai": "^6.0.208",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "undici": "6.27.0"
+  }
+}
