@@ -46,10 +46,25 @@ export const buildDiscordContext = async (
     .join("\n");
 };
 
-const truncateForPrivateContext = (value: string, maxLength = 1200) =>
-  value.length <= maxLength
-    ? value
-    : `${value.slice(0, maxLength).trim()}\n[truncated]`;
+const markdownFenceFor = (value: string) => {
+  const longestBacktickRun = Math.max(
+    2,
+    ...Array.from(value.matchAll(/`+/g)).map((match) => match[0].length)
+  );
+
+  return "`".repeat(longestBacktickRun + 1);
+};
+
+const formatExactCustomerQuote = (message: Message) => {
+  const content = message.content;
+
+  if (!content) {
+    return "```txt\n[attachment-only support request]\n```";
+  }
+
+  const fence = markdownFenceFor(content);
+  return `${fence}txt\n${content}\n${fence}`;
+};
 
 const formatPrivateDebugFields = (
   debugFields: ReturnType<typeof parseDebugFields>
@@ -86,13 +101,11 @@ const formatPrivateAttachments = (
 
 export const buildPrivateCaseContext = ({
   message,
-  customerMessage,
   decision,
   debugFields,
   attachments,
 }: {
   message: Message;
-  customerMessage: string;
   decision: ReturnType<typeof classifyPrivacy>;
   debugFields: ReturnType<typeof parseDebugFields>;
   attachments: Awaited<ReturnType<typeof collectSupportAttachments>>;
@@ -108,8 +121,8 @@ export const buildPrivateCaseContext = ({
       ? `**Source:** #${getChannelName(message)} - ${message.url}`
       : `**Source:** ${message.url}`,
     "",
-    "**Customer report**",
-    truncateForPrivateContext(customerMessage || "[attachment-only support request]"),
+    "**Original customer message**",
+    formatExactCustomerQuote(message),
     "",
     "**Debug fields**",
     formatPrivateDebugFields(debugFields),

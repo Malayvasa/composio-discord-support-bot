@@ -130,7 +130,6 @@ export const registerSupportListeners = (
         const attachments = await collectSupportAttachments(message);
         const privateCaseContext = buildPrivateCaseContext({
           message,
-          customerMessage: latestCustomerMessage,
           decision,
           debugFields,
           attachments,
