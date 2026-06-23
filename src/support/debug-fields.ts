@@ -74,6 +74,52 @@ export const parseDebugFields = (message: string): DebugFields => {
     fields[key] = match[2].trim();
   }
 
+  if (!fields.request_id) {
+    const requestIdBlock = message.match(
+      /request ids?:\s*([\s\S]*?)(?:\n\s*\n|$)/i
+    );
+    const requestIds = Array.from(
+      (requestIdBlock?.[1] ?? message).matchAll(
+        /\b[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\b/gi
+      )
+    ).map(([requestId]) => requestId);
+
+    if (requestIds.length > 0) {
+      fields.request_id = Array.from(new Set(requestIds)).join(", ");
+    }
+  }
+
+  if (!fields.toolkit) {
+    const toolingArea = message.match(/^\s*Tooling area:\s*([^/\n]+)/im);
+    const toolkitName = toolingArea?.[1]
+      ?.trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    if (toolkitName) {
+      fields.toolkit = toolkitName;
+    }
+  }
+
+  if (!fields.error) {
+    const status = message.match(/^\s*Status:\s*(\d{3})\s*$/im)?.[1];
+    const code = message.match(/^\s*Code:\s*([^\n]+)\s*$/im)?.[1]?.trim();
+    const slug = message.match(/^\s*Slug:\s*([^\n]+)\s*$/im)?.[1]?.trim();
+    const firstQuotedError = message.match(/"([^"\n]*(?:error|SSRF|blocked|failed|protection)[^"\n]*)"/i)?.[1];
+
+    const errorParts = [
+      status ? `status ${status}` : "",
+      code ? `code ${code}` : "",
+      slug ? `slug ${slug}` : "",
+      firstQuotedError ?? "",
+    ].filter(Boolean);
+
+    if (errorParts.length > 0) {
+      fields.error = errorParts.join("; ");
+    }
+  }
+
   return fields;
 };
 
@@ -86,4 +132,3 @@ export const formatDebugFields = (fields: DebugFields) => {
 
   return entries.map(([key, value]) => `@${key}: ${value}`).join("\n");
 };
-

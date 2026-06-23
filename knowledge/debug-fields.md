@@ -2,6 +2,11 @@
 
 Users can include structured debug clues in any support message. These fields are optional. Accept partial context and ask for more only when it would materially improve the next diagnostic step.
 
+The bot also extracts common free-form clues, such as a `Request IDs:` block,
+`Tooling area: Pipedrive / ...`, `Status: 400`, `Code: ...`, and `Slug: ...`.
+Structured fields are preferred, but customers do not need to rewrite a natural
+support report into a form.
+
 Example:
 
 ```txt
