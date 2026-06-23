@@ -78,8 +78,15 @@ const hasActionableDiagnosticSignal = (fields: DebugFields) =>
       (fields.tool && fields.error && fields.time_window)
   );
 
-const buildInsufficientSignalPrivateReply = (fields: DebugFields) => {
+const buildInsufficientSignalPrivateReply = (
+  fields: DebugFields,
+  customerMessage = ""
+) => {
   const hasToolContext = Boolean(fields.toolkit || fields.tool || fields.error);
+  const isOrgApiAuth =
+    /\b(x-org-api-key|org api key|organization api key|\/org\/owner\/project|regenerate_api_key|project api key)\b/i.test(
+      customerMessage
+    );
   const context = [
     fields.project_id ? `project ${fields.project_id}` : "",
     fields.org_id ? `org ${fields.org_id}` : "",
@@ -91,13 +98,21 @@ const buildInsufficientSignalPrivateReply = (fields: DebugFields) => {
     .join(", ");
   const likelyIssue = hasToolContext
     ? "A 403 here usually means the connected provider account can authenticate, but the provider is denying access to the specific resource or action."
+    : isOrgApiAuth
+      ? "Because the same org API key can fetch the project but gets 403 on project-key regeneration, this looks like endpoint-level authorization or permission enforcement rather than a bad key."
     : "The account identifiers are helpful, but they do not point to a single failed execution yet.";
+  const requestIdAsk = isOrgApiAuth
+    ? "Please share the real request ID or response headers from the failed POST; it is usually in the response body, response headers, or server log for that request."
+    : "Please share the request ID from one failed tool execution; it is usually in the SDK error output, dashboard run log, or the server log line for that failed call.";
+  const followup = isOrgApiAuth
+    ? "Once we have that request ID, we can check the exact API gateway/backend denial and confirm whether the endpoint expects a different permission or is currently blocked."
+    : "Once we have that request ID, we can check the exact Composio execution, connected-account state, and sanitized provider error.";
 
   return [
     context ? `I have the context for ${context}.` : "I have the account context from the report.",
     likelyIssue,
-    "Please share the request ID from one failed tool execution; it is usually in the SDK error output, dashboard run log, or the server log line for that failed call.",
-    "Once we have that request ID, we can check the exact Composio execution, connected-account state, and sanitized provider error.",
+    requestIdAsk,
+    followup,
   ].join("\n");
 };
 
@@ -208,7 +223,7 @@ export const runSupportAgent = async ({
   model,
 }: SupportTurnInput) => {
   if (mode === "private" && !hasActionableDiagnosticSignal(debugFields ?? {})) {
-    return buildInsufficientSignalPrivateReply(debugFields ?? {});
+    return buildInsufficientSignalPrivateReply(debugFields ?? {}, customerMessage);
   }
 
   const system = await buildSystemPrompt(mode);

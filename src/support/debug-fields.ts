@@ -120,7 +120,11 @@ export const parseDebugFields = (message: string): DebugFields => {
     const status = message.match(/^\s*Status:\s*(\d{3})\s*$/im)?.[1];
     const code = message.match(/^\s*Code:\s*([^\n]+)\s*$/im)?.[1]?.trim();
     const slug = message.match(/^\s*Slug:\s*([^\n]+)\s*$/im)?.[1]?.trim();
-    const firstQuotedError = message.match(/"([^"\n]*(?:error|SSRF|blocked|failed|protection)[^"\n]*)"/i)?.[1];
+    const firstQuotedError = Array.from(
+      message.matchAll(/"([^"\n]*(?:SSRF|blocked|failed|forbidden|unauthorized|protection|invalid|denied)[^"\n]*)"/gi)
+    )
+      .map((match) => match[1]?.trim())
+      .find((value) => value && value.toLowerCase() !== "error");
 
     const errorParts = [
       status ? `status ${status}` : "",

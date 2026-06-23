@@ -87,7 +87,6 @@ export const classifyPrivacy = (
     log_id: "tool execution log ID",
     trace_id: "trace ID",
     route: "route",
-    error: "error context",
   };
 
   for (const [key, reason] of Object.entries(privateFieldReasons)) {
