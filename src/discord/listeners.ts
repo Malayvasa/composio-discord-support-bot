@@ -266,6 +266,46 @@ const buildDiscordContext = async (
     .join("\n");
 };
 
+const truncateForPrivateContext = (value: string, maxLength = 1200) =>
+  value.length <= maxLength ? value : `${value.slice(0, maxLength).trim()}\n[truncated]`;
+
+const buildPrivateCaseContext = ({
+  message,
+  customerMessage,
+  decision,
+  debugFields,
+  attachments,
+}: {
+  message: Message;
+  customerMessage: string;
+  decision: ReturnType<typeof classifyPrivacy>;
+  debugFields: ReturnType<typeof parseDebugFields>;
+  attachments: Awaited<ReturnType<typeof collectSupportAttachments>>;
+}) =>
+  [
+    getChannelName(message)
+      ? `Discord channel/thread name: ${getChannelName(message)}`
+      : "",
+    `Public message: ${message.url}`,
+    `Route: ${decision.route}`,
+    decision.reasons.length
+      ? `Why private: ${decision.reasons.join(", ")}`
+      : "",
+    "",
+    "Triggering customer report:",
+    truncateForPrivateContext(customerMessage || "[attachment-only support request]"),
+    "",
+    "Parsed debug fields:",
+    formatDebugFields(debugFields),
+    "",
+    "Attachments:",
+    attachments.length > 0
+      ? formatAttachmentMetadata(attachments)
+      : "No attachments provided.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
 const sendLongReply = async (message: Message, text: string) => {
   const channel = message.channel;
 
@@ -403,21 +443,20 @@ export const registerSupportListeners = (
         });
 
         const attachments = await collectSupportAttachments(message);
+        const privateCaseContext = buildPrivateCaseContext({
+          message,
+          customerMessage: latestCustomerMessage,
+          decision,
+          debugFields,
+          attachments,
+        });
 
         const privateStartMessage = [
           staffMentions,
           "",
           "Private support investigation started.",
-          `Private thread: ${threadUrl}`,
-          `Public message: ${message.url}`,
-          `Route: ${decision.route}`,
           "",
-          "Debug fields:",
-          formatDebugFields(debugFields),
-          "",
-          attachments.length > 0
-            ? `Attachments: ${formatAttachmentMetadata(attachments).replace(/\n/g, "; ")}`
-            : "Attachments: none provided",
+          privateCaseContext,
         ].join("\n");
 
         await thread.send({
@@ -430,7 +469,7 @@ export const registerSupportListeners = (
         const privateAnswer = await withTypingHeartbeat(thread, () =>
           runSupportAgent({
             customerMessage: latestCustomerMessage,
-            discordContext,
+            discordContext: privateCaseContext,
             discordMessageUrl: message.url,
             mode: "private",
             tools: supportSession.tools,

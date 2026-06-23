@@ -159,6 +159,21 @@ If no users resolve for a route, diagnostics do not run.
 
 For public cases that do not need private diagnostics but look blocked, urgent, incident-shaped, billing-related, or owner-actionable, the bot can tag the routed staff users in the public reply. Private diagnostics threads always tag the routed staff users inside the private thread.
 
+## Private Thread Handoff Context
+
+When the bot opens a private diagnostics thread, it carries over a compact case
+handoff instead of dumping broad public-channel history:
+
+- The public message URL.
+- The route and reason the case moved private.
+- The triggering customer report, truncated if long.
+- Parsed debug fields.
+- Attachment metadata and extracted text for small text-like files.
+
+The private agent receives this same compact case context. It does not receive
+the full recent public channel history by default, which helps avoid stale
+context from nearby support tests or unrelated messages.
+
 ## Bring Your Own Datadog And Metabase
 
 This repo does not hard-code Composio's internal dashboards or logs.
