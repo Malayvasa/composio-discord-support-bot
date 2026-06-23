@@ -8,6 +8,7 @@ It shows how to:
 - Keep public Discord replies separate from private support diagnostics.
 - Run private diagnostics through a support-team Composio user.
 - Use public docs search for product questions and private tool access for sensitive debugging.
+- Look up current Composio toolkits, tools, schemas, scopes, and versions from the Composio API.
 
 ## How It Works
 

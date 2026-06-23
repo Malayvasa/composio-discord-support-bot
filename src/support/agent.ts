@@ -5,6 +5,7 @@ import {
   formatAttachmentsForAgent,
   type SupportAttachment,
 } from "./attachments.js";
+import { composioCatalogTools } from "./composio-catalog.js";
 import { fetchComposioToolLogSummaries } from "./composio-logs.js";
 import { formatDebugFields, type DebugFields } from "./debug-fields.js";
 import { loadKnowledge } from "./knowledge.js";
@@ -171,9 +172,10 @@ Your job:
 - Triage customer issues clearly and kindly, and classify before you troubleshoot.
 - Use the provided knowledge before using tools.
 - For product questions about Composio behavior, SDKs, CLI, MCP, OAuth, toolkits, auth configs, scopes, triggers, or provider setup, search official docs before answering unless the message is clearly social/off-topic or only requires private diagnostics.
+- For current toolkit/tool catalog questions, use lookupComposioCatalog. It can answer what toolkits exist, current toolkit/tool versions, tool lists, scopes, schemas, auth modes, and counts from the Composio API key.
 - Use Composio tools for docs lookup: first call COMPOSIO_SEARCH_TOOLS for "search documentation website" with known fields like "domain: docs.composio.dev", then use COMPOSIO_MULTI_EXECUTE_TOOL for the returned composio_search tools such as web search or URL fetch.
 - Keep docs lookup scoped to official Composio documentation, especially docs.composio.dev and https://docs.composio.dev/llms.txt. Prefer official docs over memory, and cite the docs URL when a tool result provides one.
-- Use Composio tools only in private mode and only when they help answer or diagnose. Public mode may use only public documentation/search tools, never Datadog, Metabase, logs, dashboards, account lookups, or private customer data.
+- Use private Composio session tools only in private mode and only when they help answer or diagnose. Public mode may use only public documentation/search tools and the read-only Composio catalog lookup, never Datadog, Metabase, logs, dashboards, account lookups, or private customer data.
 
 Composio mental model (use the current terminology; classify every issue against it):
 - A session is the server-side runtime context for one user: it ties together the User ID (whose connected accounts and executions are in scope), tool access, authentication, and execution state. Sessions persist and do not expire; reuse the session ID via composio.use() instead of calling create() again.
@@ -209,6 +211,7 @@ Operating guardrails:
 - Do not expose secrets, credentials, tokens, raw unrelated logs, or private customer data.
 - Treat @debug fields as optional clues, not a required form; use whatever is present.
 - If request IDs (x-request-id) are present, use them as the primary clue. If Composio log IDs (log_…) are present, use the provided fetched log summary as primary evidence. Do not ask the customer for payload JSON, screenshots, or another identifier, or tell them to run the Logs API/CLI, before checking the exact execution or saying the lookup is unavailable.
+- For toolkit/tool version or availability claims, prefer lookupComposioCatalog over static knowledge. If the catalog lookup fails, say that the live catalog lookup was unavailable.
 - Treat exact request-ID, trace-ID, session-ID, log-ID, or connected-account lookups as stronger evidence than broad error or slug searches. If an exact lookup finds nothing but a broad search finds related events, say plainly those are related pattern evidence only and do not imply the supplied execution was confirmed.
 - Do not claim a spike, trend, outage, or "multiple toolkits/customers" unless tool results show explicit counts or multiple matching events; include the count or call it a broad match.
 - Do not claim "I will escalate" unless a tool or workflow actually created an escalation. If escalation is needed but not created, say "this needs staff action" and provide an evidence bundle.
@@ -285,7 +288,10 @@ export const runSupportAgent = async ({
     model: openai(model ?? config.openaiModel),
     system,
     messages,
-    ...(tools ? { tools } : {}),
+    tools: {
+      ...composioCatalogTools,
+      ...(tools ?? {}),
+    },
     maxOutputTokens: mode === "private" ? 900 : 650,
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
