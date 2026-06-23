@@ -133,7 +133,7 @@ export const formatSupportCaseState = (state: SupportCaseState) =>
       : "",
     state.lastCustomerMessage
       ? [
-          "- Latest staff/customer follow-up:",
+          "- Latest private-thread follow-up:",
           "```txt",
           state.lastCustomerMessage,
           "```",
