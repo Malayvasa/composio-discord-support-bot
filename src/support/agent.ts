@@ -17,6 +17,9 @@ const getKnowledge = () => {
   return knowledgeCache;
 };
 
+const elapsedMs = (startedAt: bigint) =>
+  Number((process.hrtime.bigint() - startedAt) / 1_000_000n);
+
 const normalizeParagraphs = (answer: string) =>
   answer
     .trim()
@@ -55,58 +58,6 @@ const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
   }
 
   return normalizeParagraphs(polished);
-};
-
-const rewritePrivateStaffNote = async (answer: string, model?: string) => {
-  const result = await generateText({
-    model: openai(model ?? config.openaiModel),
-    system: [
-      "Rewrite the draft as a concise customer-facing support update for a private Discord support thread.",
-      "Preserve only facts present in the draft. Do not invent checks or outcomes.",
-      "Maximum 850 characters.",
-      "Use friendly support language, not internal investigation labels.",
-      "Use 2-3 short paragraphs separated by a blank line.",
-      "Do not put every sentence on its own line.",
-      "Use 3-4 short sentences total, not headings.",
-      "Acknowledge what context we have.",
-      "Explain the likely issue in customer-safe terms.",
-      "Ask for one specific next detail and say where to find it.",
-      "Say what we will check after receiving it.",
-      "Do not include markdown headings, numbered lists, docs link lists, or raw tool/schema/parameter errors.",
-      "Do not say 'ask customer for 1 item', 'unblocks everything', or other planning labels.",
-      "If the draft asks for multiple customer details, keep only the most important one.",
-      "Avoid phrases like 'Datadog query', 'Metabase query', 'internal logs', or raw IDs unless they were supplied by the user and are necessary.",
-      "If request IDs are already present, do not ask for more customer details unless the draft says the request-ID lookup was inconclusive or unavailable.",
-      "A reported @toolkit value is the customer's failing toolkit. Do not tell staff to enable that provider toolkit for debugging.",
-      "Datadog and Metabase are internal Composio observability tools for checking Composio-side execution and account state.",
-    ].join("\n"),
-    prompt: answer,
-    maxOutputTokens: 260,
-  });
-
-  return polishSupportAnswer(result.text, "private");
-};
-
-const rewritePublicSupportAnswer = async (answer: string, model?: string) => {
-  const result = await generateText({
-    model: openai(model ?? config.openaiModel),
-    system: [
-      "Rewrite the draft as a complete, concise public Discord support reply.",
-      "Preserve only facts present in the draft. Do not invent checks or outcomes.",
-      "Maximum 550 characters.",
-      "Use 1-2 short paragraphs separated by a blank line if there are two paragraphs.",
-      "Do not put every sentence on its own line.",
-      "Use 2-4 short sentences total.",
-      "No headings, numbered lists, bullets, or long checklists.",
-      "Give the likely cause, one concrete next step, and at most one follow-up detail.",
-      "Do not mention private diagnostics, Datadog, Metabase, logs, or internal tools.",
-      "Do not end mid-sentence. If needed, drop less important details to keep the answer complete.",
-    ].join("\n"),
-    prompt: answer,
-    maxOutputTokens: 180,
-  });
-
-  return polishSupportAnswer(result.text, "public");
 };
 
 const hasActionableDiagnosticSignal = (fields: DebugFields) =>
@@ -242,7 +193,10 @@ ${modeInstructions}
 
 When responding:
 - Be concise. Public replies should usually be 1-2 short paragraphs and under 700 characters unless a safety-critical answer needs more. Private diagnostics should still read like a customer-facing support update, not an internal log note.
+- Return the final Discord reply directly. Do not draft internal notes for a second pass.
 - Use proper paragraphs: group related sentences together and separate paragraphs with a blank line. Do not put every sentence on its own line.
+- Use 2-4 short sentences total unless you need an evidence bundle.
+- Do not include markdown headings, numbered lists, docs link lists, or raw tool/schema/parameter errors in normal customer-facing replies.
 - Start with the likely issue or next step, named in current Composio terms (surface, auth mode, status code) rather than vague restating.
 - If you used tools, summarize what you checked.
 - If you need more information, ask for one specific detail in plain support language and say where to find it, for example "Please share the request ID from one failed tool execution; it's usually in the SDK error output or the dashboard run log." Never write planning labels like "ask customer for 1 item." For deeper Composio-side checks, the useful identifiers are project_id (pr_/proj_), org_id (ok_), the connected account ID, and a request or log ID.
@@ -267,15 +221,19 @@ export const runSupportAgent = async ({
   attachments = [],
   model,
 }: SupportTurnInput) => {
+  const startedAt = process.hrtime.bigint();
+
   if (mode === "private" && !hasActionableDiagnosticSignal(debugFields ?? {})) {
     return buildInsufficientSignalPrivateReply(debugFields ?? {}, customerMessage);
   }
 
+  const setupStartedAt = process.hrtime.bigint();
   const system = await buildSystemPrompt(mode);
   const toolLogSummary =
     mode === "private" && debugFields?.log_id
       ? await fetchComposioToolLogSummaries(debugFields.log_id)
       : "No Composio tool log ID lookup was requested.";
+  const setupMs = elapsedMs(setupStartedAt);
 
   const messages: ModelMessage[] = [
     {
@@ -305,6 +263,7 @@ export const runSupportAgent = async ({
     },
   ];
 
+  const modelStartedAt = process.hrtime.bigint();
   const result = await generateText({
     model: openai(model ?? config.openaiModel),
     system,
@@ -316,12 +275,16 @@ export const runSupportAgent = async ({
     maxOutputTokens: mode === "private" ? 900 : 650,
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
+  const modelMs = elapsedMs(modelStartedAt);
+  const totalMs = elapsedMs(startedAt);
 
-  const polished = polishSupportAnswer(result.text, mode);
+  console.log("[support-agent] turn completed", {
+    mode,
+    setupMs,
+    modelMs,
+    totalMs,
+    toolCallCount: result.toolCalls.length,
+  });
 
-  if (mode === "private") {
-    return rewritePrivateStaffNote(polished, model);
-  }
-
-  return rewritePublicSupportAnswer(polished, model);
+  return polishSupportAnswer(result.text, mode);
 };

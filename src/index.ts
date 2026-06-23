@@ -31,6 +31,15 @@ client.once("ready", (readyClient) => {
     channelIds:
       config.supportChannelIds.length > 0 ? config.supportChannelIds : "all",
   });
+
+  void Promise.all([
+    sessions.getSupportSession(),
+    config.publicDocsToolkits.length > 0
+      ? sessions.getPublicDocsSession()
+      : Promise.resolve(undefined),
+  ]).catch((error) => {
+    console.warn("[startup] failed to warm Composio sessions", error);
+  });
 });
 
 registerSupportListeners(client, sessions);
