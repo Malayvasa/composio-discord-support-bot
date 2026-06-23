@@ -17,6 +17,22 @@ const getKnowledge = () => {
   return knowledgeCache;
 };
 
+const normalizeParagraphs = (answer: string) =>
+  answer
+    .trim()
+    .replace(/\r\n/g, "\n")
+    .split(/\n{2,}/)
+    .map((block) => {
+      const trimmed = block.trim();
+      const keepLineBreaks =
+        /^(```|#{1,6}\s|[-*]\s|\d+\.\s|>|\|)/m.test(trimmed);
+
+      return keepLineBreaks ? trimmed : trimmed.replace(/\n+/g, " ");
+    })
+    .filter(Boolean)
+    .join("\n\n")
+    .replace(/\n{3,}/g, "\n\n");
+
 const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
   let polished = answer.trim();
 
@@ -38,7 +54,7 @@ const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
       .replace(/^#{1,3}\s*Evidence bundle\s*$/gim, "### Evidence");
   }
 
-  return polished.trim();
+  return normalizeParagraphs(polished);
 };
 
 const rewritePrivateStaffNote = async (answer: string, model?: string) => {
@@ -49,7 +65,9 @@ const rewritePrivateStaffNote = async (answer: string, model?: string) => {
       "Preserve only facts present in the draft. Do not invent checks or outcomes.",
       "Maximum 850 characters.",
       "Use friendly support language, not internal investigation labels.",
-      "Use 3-4 short sentences, not headings.",
+      "Use 2-3 short paragraphs separated by a blank line.",
+      "Do not put every sentence on its own line.",
+      "Use 3-4 short sentences total, not headings.",
       "Acknowledge what context we have.",
       "Explain the likely issue in customer-safe terms.",
       "Ask for one specific next detail and say where to find it.",
@@ -76,7 +94,9 @@ const rewritePublicSupportAnswer = async (answer: string, model?: string) => {
       "Rewrite the draft as a complete, concise public Discord support reply.",
       "Preserve only facts present in the draft. Do not invent checks or outcomes.",
       "Maximum 550 characters.",
-      "Use 2-4 short sentences.",
+      "Use 1-2 short paragraphs separated by a blank line if there are two paragraphs.",
+      "Do not put every sentence on its own line.",
+      "Use 2-4 short sentences total.",
       "No headings, numbered lists, bullets, or long checklists.",
       "Give the likely cause, one concrete next step, and at most one follow-up detail.",
       "Do not mention private diagnostics, Datadog, Metabase, logs, or internal tools.",
@@ -134,7 +154,7 @@ const buildInsufficientSignalPrivateReply = (
     likelyIssue,
     requestIdAsk,
     followup,
-  ].join("\n");
+  ].join("\n\n");
 };
 
 export interface SupportTurnInput {
@@ -221,7 +241,8 @@ Mode:
 ${modeInstructions}
 
 When responding:
-- Be concise. Public replies should usually be 2-4 short lines and under 700 characters unless a safety-critical answer needs more. Private diagnostics should still read like a customer-facing support update, not an internal log note.
+- Be concise. Public replies should usually be 1-2 short paragraphs and under 700 characters unless a safety-critical answer needs more. Private diagnostics should still read like a customer-facing support update, not an internal log note.
+- Use proper paragraphs: group related sentences together and separate paragraphs with a blank line. Do not put every sentence on its own line.
 - Start with the likely issue or next step, named in current Composio terms (surface, auth mode, status code) rather than vague restating.
 - If you used tools, summarize what you checked.
 - If you need more information, ask for one specific detail in plain support language and say where to find it, for example "Please share the request ID from one failed tool execution; it's usually in the SDK error output or the dashboard run log." Never write planning labels like "ask customer for 1 item." For deeper Composio-side checks, the useful identifiers are project_id (pr_/proj_), org_id (ok_), the connected account ID, and a request or log ID.
