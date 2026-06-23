@@ -152,6 +152,7 @@ export const registerSupportListeners = (
 
       if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
         const thread = await createPrivateInvestigationThread(message, decision);
+        const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
         const staffMentions = decision.staffUserIds
           .map((userId) => `<@${userId}>`)
           .join(" ");
@@ -159,7 +160,8 @@ export const registerSupportListeners = (
         await thinking.edit(
           [
             "This may involve private account, org, log, or diagnostics data.",
-            "I opened a private staff investigation thread and will keep public updates sanitized.",
+            `I opened a private staff investigation thread: ${threadUrl}`,
+            "I will keep public updates sanitized.",
           ].join("\n")
         );
 
@@ -168,6 +170,7 @@ export const registerSupportListeners = (
             staffMentions,
             "",
             "Private support investigation started.",
+            `Private thread: ${threadUrl}`,
             `Public message: ${message.url}`,
             `Route: ${decision.route}`,
             `Privacy reasons: ${decision.reasons.join(", ")}`,
@@ -182,6 +185,8 @@ export const registerSupportListeners = (
           discordMessageUrl: message.url,
           mode: "private",
           tools: supportSession.tools,
+          composioSessionId: supportSession.sessionId,
+          composioUserId: supportSession.userId,
         });
 
         await sendLongChannelMessage(thread, privateAnswer);
@@ -197,6 +202,8 @@ export const registerSupportListeners = (
         discordMessageUrl: message.url,
         mode: isPrivateThread(message) ? "private" : "public",
         tools: supportSession?.tools,
+        composioSessionId: supportSession?.sessionId,
+        composioUserId: supportSession?.userId,
       });
 
       const chunks = splitDiscordMessage(answer);

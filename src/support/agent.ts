@@ -16,6 +16,8 @@ export interface SupportTurnInput {
   discordMessageUrl: string;
   mode: "public" | "private";
   tools?: ToolSet;
+  composioSessionId?: string;
+  composioUserId?: string;
 }
 
 const buildSystemPrompt = async (mode: "public" | "private") => {
@@ -64,6 +66,8 @@ export const runSupportAgent = async ({
   discordMessageUrl,
   mode,
   tools,
+  composioSessionId,
+  composioUserId,
 }: SupportTurnInput) => {
   const system = await buildSystemPrompt(mode);
 
@@ -74,6 +78,8 @@ export const runSupportAgent = async ({
         "Customer support request from Discord.",
         "",
         `Discord message URL: ${discordMessageUrl}`,
+        composioUserId ? `Composio support user ID: ${composioUserId}` : "",
+        composioSessionId ? `Composio support session ID: ${composioSessionId}` : "",
         "",
         "Recent Discord context:",
         discordContext,
