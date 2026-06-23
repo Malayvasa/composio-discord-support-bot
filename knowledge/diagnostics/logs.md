@@ -2,7 +2,7 @@
 
 Use logs when a customer provides a request ID, trace ID, route, user ID, or tight time window.
 
-Logs must only be queried from a private staff diagnostics thread. Never query or summarize private logs directly in a public Discord channel.
+Logs must only be queried from a private support thread with the customer and configured staff. Never query or summarize private logs directly in a public Discord channel.
 
 Look for:
 

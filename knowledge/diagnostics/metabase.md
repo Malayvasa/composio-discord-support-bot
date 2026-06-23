@@ -7,7 +7,7 @@ for any customer-reported toolkit by checking Composio-side account and
 execution state. The reported `@toolkit` field is the failing customer toolkit,
 not a requirement to enable that toolkit for the support bot.
 
-Metabase diagnostics must only run in a private staff diagnostics thread. Do not expose private account rows, customer data, or raw query results in public Discord.
+Metabase diagnostics must only run in a private support thread with the customer and configured staff. Do not expose private account rows, unrelated customer data, or raw query results in Discord; summarize only the relevant customer-safe finding.
 
 Good Metabase questions:
 

@@ -38,8 +38,8 @@ flowchart TD
   C -->|No| D["Answer in public"]
   D --> E["Use public docs when useful"]
 
-  C -->|Yes| F["Create private staff thread"]
-  F --> G["Add configured staff"]
+  C -->|Yes| F["Create private support thread"]
+  F --> G["Add customer and configured staff"]
   G --> H["Use support team's Composio tools"]
   H --> I["Reply safely in the private thread"]
 
@@ -48,7 +48,7 @@ flowchart TD
 
 Customers do not connect your internal tools. Your support team connects tools
 for `SUPPORT_SESSION_USER_ID`, and the bot uses those tools only in private
-diagnostics threads.
+support threads.
 
 Datadog and Metabase are just example support tools. Replace them with whatever
 your team uses for logs, dashboards, tickets, CRM, or escalation.
@@ -92,8 +92,8 @@ The bot responds to DMs, direct mentions, and configured support channels. If
 real servers.
 
 The bot needs Discord permissions to send messages, create private threads, and
-add staff members to private threads. If private thread setup fails, it does not
-run internal tools.
+add the customer plus staff members to private threads. If private thread setup
+fails, it does not run internal tools.
 
 ## Connect Support Tools
 
@@ -127,8 +127,8 @@ Customers or staff can include any clues they have. None are required.
 @error: 403 permission denied
 ```
 
-Attachments are treated as private by default. The bot opens a private staff
-thread before reading small text-like files.
+Attachments are treated as private by default. The bot opens a private support
+thread with the customer and support staff before reading small text-like files.
 
 ## Key Files
 

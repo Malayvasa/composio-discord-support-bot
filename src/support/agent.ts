@@ -43,7 +43,7 @@ const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
     polished = polished
       .replace(/\s*\((?:ask|ask the) customer for\s+1\s+item\)/gi, "")
       .replace(/\b(?:ask|ask the) customer for\s+1\s+item\b/gi, "missing detail")
-      .replace(/\bAsk them for the\b/g, "Please ask the customer for the")
+      .replace(/\bAsk them for the\b/g, "Please share the")
       .replace(
         /\benable the ([a-z0-9_-]+) toolkit for connected-account-level debugging\b/gi,
         "use Datadog or Metabase to inspect the Composio tool execution and connected-account state"
@@ -52,10 +52,15 @@ const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
         /\benable the ([a-z0-9_-]+) toolkit for deeper tool diagnostics\b/gi,
         "use Datadog or Metabase to inspect the Composio tool execution and connected-account state"
       )
-      .replace(/\bplease ask the customer \(?in the public thread\)? for\b/gi, "we need")
-      .replace(/\bask the customer \(?in the public thread\)? for\b/gi, "collect")
-      .replace(/\bask the customer for\b/gi, "collect")
-      .replace(/\bthe customer(?:'s)?\b/gi, "the case")
+      .replace(
+        /\bplease ask the customer \(?in the public thread\)? for\b/gi,
+        "please share"
+      )
+      .replace(
+        /\bask the customer \(?in the public thread\)? for\b/gi,
+        "share"
+      )
+      .replace(/\bask the customer for\b/gi, "ask for")
       .replace(/^#{1,3}\s*Likely root causes to validate\s*$/gim, "### Likely cause")
       .replace(/^#{1,3}\s*Staff action \/ next diagnostic step\s*$/gim, "### Next step")
       .replace(/^#{1,3}\s*Evidence bundle\s*$/gim, "### Evidence");
@@ -129,14 +134,14 @@ const buildSystemPrompt = async (mode: "public" | "private") => {
   const knowledge = await getKnowledge();
   const modeInstructions =
     mode === "private"
-      ? `You are in a private staff-only diagnostics thread.
+      ? `You are in a private support thread shared by the customer and configured Composio support staff.
 - You may use Composio tools when they help diagnose the issue.
 - Datadog and Metabase are internal Composio observability tools for checking customer-facing Composio failures across any reported toolkit.
 - A debug field like @toolkit: github means the customer's Composio app was calling the GitHub toolkit. It does not mean this support bot needs the GitHub toolkit enabled to investigate.
-- Do not tell staff to enable the reported customer toolkit for debugging unless the task explicitly requires the support bot to perform provider actions itself.
-- Write to the staff in this private thread, not to the end customer. Use "we" and "this case"; do not say "ask the customer in the public thread".
-- The private thread is where staff can add org_id, project_id, request_id, log_id, and other sensitive details. If a field is missing, ask for it here.
-- If the required field is present, advance to the next action instead of asking for confirmation. For entitlement or gated-feature issues, say this needs staff-side enablement or owner routing.
+- Do not tell anyone to enable the reported customer toolkit for debugging unless the task explicitly requires the support bot to perform provider actions itself.
+- Write directly to the people in this private thread. Do not say "ask the customer in the public thread"; the customer is already here.
+- The private thread is where the customer or staff can share org_id, project_id, request_id, log_id, and other sensitive details. If a field is missing, ask for it here.
+- If the required field is present, advance to the next action instead of asking for confirmation. For entitlement or gated-feature issues, say this needs Composio-side enablement or owner routing.
 - Still summarize findings safely and avoid secrets, raw tokens, unrelated customer data, and broad data dumps.`
       : `You are in a public customer-visible Discord surface.
 - Do not use internal diagnostics or private customer/account/log data.
@@ -199,7 +204,7 @@ Mode:
 ${modeInstructions}
 
 When responding:
-- Be concise. Public replies should usually be 1-2 short paragraphs and under 700 characters unless a safety-critical answer needs more. Private diagnostics should be staff-facing but customer-safe: direct enough for staff to act, without raw logs or unrelated private data.
+- Be concise. Public replies should usually be 1-2 short paragraphs and under 700 characters unless a safety-critical answer needs more. Private diagnostics should be private-thread safe: clear enough for the customer and staff to act, without raw logs or unrelated private data.
 - Return the final Discord reply directly. Do not draft internal notes for a second pass.
 - Use proper paragraphs: group related sentences together and separate paragraphs with a blank line. Do not put every sentence on its own line.
 - Use 2-4 short sentences total unless you need an evidence bundle.
@@ -211,8 +216,8 @@ When responding:
 - If staff action is needed, include an evidence bundle a teammate can act on, without promising you created an escalation. In public mode, keep this to one sentence.
 - Do not paste long raw logs or file contents into Discord; summarize the relevant signal and cite the attachment name.
 - Do not expose raw tool-call, schema, or parameter errors unless the operator must act on that exact error. Prefer "I could not confirm this in internal logs yet" over raw diagnostics-tool failure text.
-- In private mode, never frame the reply as instructions for the customer-facing public thread. Private mode should either report what was checked, ask staff for the next private identifier here, or name the staff-side action needed.
-- In private mode, do not refer to the user as "the customer" unless comparing customer-side vs Composio-side ownership. Prefer "this org", "this request", "this case", or "the reported app".
+- In private mode, never frame the reply as instructions for the customer-facing public thread. Private mode should either report what was checked, ask for the next private identifier here, or name the Composio-side action needed.
+- In private mode, prefer "this org", "this request", "this case", or "the reported app" over third-person phrasing like "the customer".
 
 Knowledge:
 ${knowledge}`;

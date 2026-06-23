@@ -56,4 +56,4 @@ For provider OAuth scope problems:
 
 Never paste OAuth tokens, API keys, or secret headers into Discord.
 
-If debugging uses a customer email, organization ID, connected account ID, auth config ID, request ID, or trace ID, move the investigation to a private staff diagnostics thread before using internal tools.
+If debugging uses a customer email, organization ID, connected account ID, auth config ID, request ID, or trace ID, move the investigation to a private support thread with the customer and configured staff before using internal tools. Summarize internal findings safely; do not share raw logs, secrets, or unrelated customer data.

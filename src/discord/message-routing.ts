@@ -1,6 +1,5 @@
 import { ChannelType, type Client, type Message } from "discord.js";
 import { config } from "../config.js";
-import { isConfiguredStaffUser } from "../support/privacy.js";
 
 export const isPrivateThread = (message: Message) =>
   message.channel.type === ChannelType.PrivateThread;
@@ -35,7 +34,7 @@ export const shouldRespond = (client: Client, message: Message) => {
   }
 
   if (isPrivateThread(message)) {
-    return isConfiguredStaffUser(message.author.id);
+    return true;
   }
 
   if (!message.guild) {

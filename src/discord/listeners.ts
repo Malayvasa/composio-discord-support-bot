@@ -192,7 +192,7 @@ export const registerSupportListeners = (
         await thinking.edit({
           content: [
             "This may involve private account, org, log, or diagnostics data.",
-            `I opened a private staff investigation thread: ${threadUrl}`,
+            `I opened a private support thread with you and the support team: ${threadUrl}`,
             "I will keep public updates sanitized.",
           ].join("\n"),
           flags: MessageFlags.SuppressEmbeds,
@@ -209,15 +209,19 @@ export const registerSupportListeners = (
         const privateStartMessage = [
           staffMentions,
           "",
-          "**Private support investigation**",
-          "Staff-only thread for account, log, or diagnostics context.",
+          `<@${message.author.id}>`,
+          "",
+          "**Private support thread**",
+          "Shared thread for you and Composio support. We can use account, org, log, or diagnostics context here without posting it publicly.",
           "",
           privateCaseContext,
         ].join("\n");
 
         await thread.send({
           content: privateStartMessage,
-          allowedMentions: { users: decision.staffUserIds },
+          allowedMentions: {
+            users: [...decision.staffUserIds, message.author.id],
+          },
           flags: MessageFlags.SuppressEmbeds,
         });
 

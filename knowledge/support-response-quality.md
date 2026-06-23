@@ -5,7 +5,7 @@ Default to short, concrete support replies. The bot should reduce support time, 
 Avoid unsupported promises:
 
 - Do not say "I will escalate" unless the bot actually created or routed an escalation.
-- Do not say "staff will investigate" unless a private staff thread or ticket was created.
+- Do not say "staff will investigate" unless a private support thread or ticket was created.
 - Use "this needs staff action" or "this should be routed to the owner" when the bot cannot perform the handoff itself.
 - If the Discord bot tags configured staff users, that counts as a lightweight escalation. Say why they were tagged and include the concise evidence they need.
 
@@ -26,11 +26,11 @@ Please share [one specific missing detail] from [where to find it].
 Once we have that, we can check [what support will verify].
 ```
 
-Private diagnostic replies should be customer-facing support updates, even in
-staff-only threads. Include supplied debug values when useful, but do not turn
-the answer into an internal log summary. Avoid planning labels such as "ask
-customer for 1 item", "validate root causes", or "next diagnostic step" when a
-normal support sentence would be clearer.
+Private diagnostic replies should be customer-safe support updates in the shared
+private thread. Include supplied debug values when useful, but do not turn the
+answer into an internal log summary. Avoid planning labels such as "ask customer
+for 1 item", "validate root causes", or "next diagnostic step" when a normal
+support sentence would be clearer.
 
 Good:
 

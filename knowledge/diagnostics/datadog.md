@@ -7,7 +7,7 @@ any customer-reported toolkit, such as GitHub or Gmail, by searching Composio
 service logs and traces. The reported `@toolkit` field is the failing customer
 toolkit, not a requirement to enable that toolkit for the support bot.
 
-Datadog diagnostics must only run in a private staff diagnostics thread. Public replies can say that staff is investigating, but should not expose internal metrics, trace contents, or service details that are not safe for customers.
+Datadog diagnostics must only run in a private support thread with the customer and configured staff. Public replies can say that staff is investigating, but should not expose internal metrics, trace contents, or service details that are not safe for customers. In the private thread, summarize only the relevant customer-safe finding.
 
 Good Datadog searches include:
 

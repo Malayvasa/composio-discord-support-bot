@@ -29,9 +29,9 @@ Debug info format:
 Privacy rule:
 
 - Public Discord is for triage and safe guidance only.
-- Private identifiers and internal diagnostics require a private staff thread.
+- Private identifiers and internal diagnostics require a private support thread with the customer and configured staff.
 - Do not run Datadog, Metabase, logs, dashboards, or internal account lookups in public.
-- If a private thread cannot be created or the right staff cannot be added, stop and fail closed.
+- If a private thread cannot be created, or the customer and right staff cannot be added, stop and fail closed.
 
 Private-thread triggers include:
 
@@ -53,7 +53,7 @@ First response pattern:
 
 Escalation language:
 
-- Do not say "I will escalate" unless a ticket, private staff thread, or owner handoff was actually created.
+- Do not say "I will escalate" unless a ticket, private support thread, or owner handoff was actually created.
 - If the bot cannot create an escalation, say "this needs staff action" and provide the evidence bundle.
 - For public forum replies, never imply that private diagnostics already happened unless they did.
 

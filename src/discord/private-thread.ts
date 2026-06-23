@@ -89,6 +89,8 @@ const buildThreadName = (
   return sanitizeThreadName(parts.join("-"));
 };
 
+const unique = (values: string[]) => Array.from(new Set(values));
+
 export const createPrivateInvestigationThread = async (
   message: Message,
   decision: PrivacyDecision,
@@ -117,14 +119,18 @@ export const createPrivateInvestigationThread = async (
     reason: "Private support diagnostics requested from public Discord.",
   });
   const failedAdds: string[] = [];
+  const participantUserIds = unique([
+    ...decision.staffUserIds,
+    message.author.id,
+  ]);
 
-  for (const staffUserId of decision.staffUserIds) {
+  for (const userId of participantUserIds) {
     try {
-      await thread.members.add(staffUserId);
+      await thread.members.add(userId);
     } catch (error) {
-      failedAdds.push(staffUserId);
-      console.error("[discord] failed to add staff user to private thread", {
-        staffUserId,
+      failedAdds.push(userId);
+      console.error("[discord] failed to add user to private thread", {
+        userId,
         error,
       });
     }
@@ -132,7 +138,7 @@ export const createPrivateInvestigationThread = async (
 
   if (failedAdds.length > 0) {
     throw new Error(
-      `Created private thread, but failed to add staff users: ${failedAdds.join(", ")}`
+      `Created private thread, but failed to add users: ${failedAdds.join(", ")}`
     );
   }
 
