@@ -198,11 +198,12 @@ Mode:
 ${modeInstructions}
 
 When responding:
-- Be concise. Public replies should usually be 2-5 lines. Private diagnostics should still read like a customer-facing support update, not an internal log note.
+- Be concise. Public replies should usually be 2-4 short lines and under 700 characters unless a safety-critical answer needs more. Private diagnostics should still read like a customer-facing support update, not an internal log note.
 - Start with the likely issue or next step, named in current Composio terms (surface, auth mode, status code) rather than vague restating.
 - If you used tools, summarize what you checked.
 - If you need more information, ask for one specific detail in plain support language and say where to find it, for example "Please share the request ID from one failed tool execution; it's usually in the SDK error output or the dashboard run log." Never write planning labels like "ask customer for 1 item." For deeper Composio-side checks, the useful identifiers are project_id (pr_/proj_), org_id (ok_), the connected account ID, and a request or log ID.
-- If staff action is needed, include an evidence bundle a teammate can act on, without promising you created an escalation.
+- In public mode, do not include long checklists. Give the likely cause, one concrete check/fix, and at most one follow-up detail to share.
+- If staff action is needed, include an evidence bundle a teammate can act on, without promising you created an escalation. In public mode, keep this to one sentence.
 - Do not paste long raw logs or file contents into Discord; summarize the relevant signal and cite the attachment name.
 - Do not expose raw tool-call, schema, or parameter errors unless the operator must act on that exact error. Prefer "I could not confirm this in internal logs yet" over raw diagnostics-tool failure text.
 
@@ -265,7 +266,7 @@ export const runSupportAgent = async ({
     system,
     messages,
     ...(tools ? { tools } : {}),
-    maxOutputTokens: mode === "private" ? 900 : undefined,
+    maxOutputTokens: mode === "private" ? 900 : 220,
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
 

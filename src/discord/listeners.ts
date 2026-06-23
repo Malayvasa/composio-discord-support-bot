@@ -134,7 +134,7 @@ const shouldTagStaff = (
 
   const text = `${getChannelName(message) ?? ""} ${customerMessage} ${answer}`.toLowerCase();
 
-  return /\b(staff action|needs staff|blocked|fully blocked|urgent|production|prod|outage|incident|security|billing|refund|frozen|cannot upgrade|can't upgrade|5\d\d|503|down|unresponsive|provider bug|toolkit bug|maintainer|owner)\b/i.test(
+  return /\b(staff action|needs staff|fully blocked|urgent|production is blocked|prod is blocked|outage|incident|security|billing|refund|frozen|cannot upgrade|can't upgrade|5\d\d|503|service down|api down|unresponsive|provider bug|toolkit bug|maintainer)\b/i.test(
     text
   );
 };
