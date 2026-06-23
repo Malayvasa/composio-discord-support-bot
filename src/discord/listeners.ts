@@ -34,15 +34,15 @@ import {
 } from "./replies.js";
 
 const publicProgressStates = [
-  "Looking into this...\n\nStep: Reading the support request.",
-  "Looking into this...\n\nStep: Checking relevant Composio knowledge.",
-  "Looking into this...\n\nStep: Drafting a short reply.",
+  "Reading the support request.",
+  "Checking relevant Composio knowledge.",
+  "Drafting a short reply.",
 ];
 
 const privateProgressStates = [
-  "Working on this in the private thread...\n\nStep: Reviewing the case summary.",
-  "Working on this in the private thread...\n\nStep: Checking available support tools.",
-  "Working on this in the private thread...\n\nStep: Writing a customer-safe update.",
+  "Reviewing the case summary.",
+  "Checking available support tools.",
+  "Writing a customer-safe update.",
 ];
 
 export const registerSupportListeners = (
