@@ -88,13 +88,14 @@ const buildThreadName = (
 export const createPrivateInvestigationThread = async (
   message: Message,
   decision: PrivacyDecision,
-  fields: DebugFields = {}
+  fields: DebugFields = {},
+  targetChannel: TextBasedChannel = message.channel
 ) => {
   if (!message.guild) {
     throw new Error("Private diagnostics require a guild channel.");
   }
 
-  if (!isThreadableChannel(message.channel)) {
+  if (!isThreadableChannel(targetChannel)) {
     throw new Error("This channel cannot create private threads.");
   }
 
@@ -106,7 +107,7 @@ export const createPrivateInvestigationThread = async (
 
   const threadName = buildThreadName(message, decision, fields);
 
-  const thread = await message.channel.threads.create({
+  const thread = await targetChannel.threads.create({
     name: threadName,
     type: ChannelType.PrivateThread,
     invitable: false,

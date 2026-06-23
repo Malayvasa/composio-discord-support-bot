@@ -77,6 +77,20 @@ For production servers, set `SUPPORT_CHANNEL_IDS` so the bot only watches suppor
 
 The bot needs Discord permissions to send messages, create private threads, and add members to private threads. If it cannot create the thread or add the right staff users, it fails closed and does not run diagnostics. Follow-up commands inside private diagnostics threads only run for configured staff users.
 
+### Discord Forum Channels
+
+`SUPPORT_CHANNEL_IDS` can include Discord forum channel IDs. The bot will respond inside forum posts under that forum.
+
+Discord forum posts are public threads, and Discord cannot convert them into private threads or create private threads inside them. If private diagnostics are needed from a forum post, configure a normal text channel where private diagnostics threads should be created:
+
+```txt
+SUPPORT_CHANNEL_IDS=1268871288156323901
+SUPPORT_FORUM_AUTHOR_IDS=417699705330335745
+PRIVATE_DIAGNOSTICS_CHANNEL_ID=1518786626736881694
+```
+
+`SUPPORT_FORUM_AUTHOR_IDS` is optional. It is useful for testing because it limits auto-responses to forum posts created by specific Discord users.
+
 ## Support Flow
 
 1. A customer posts a support issue in Discord.

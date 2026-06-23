@@ -24,6 +24,25 @@ import {
 const isPrivateThread = (message: Message) =>
   message.channel.type === ChannelType.PrivateThread;
 
+const isPublicThread = (message: Message) =>
+  message.channel.type === ChannelType.PublicThread ||
+  message.channel.type === ChannelType.AnnouncementThread;
+
+const getParentChannelId = (message: Message) =>
+  "parentId" in message.channel ? message.channel.parentId : undefined;
+
+const getThreadOwnerId = (message: Message) =>
+  "ownerId" in message.channel ? message.channel.ownerId : undefined;
+
+const isAllowedForumThreadOwner = (message: Message) => {
+  if (!isPublicThread(message) || config.supportForumAuthorIds.length === 0) {
+    return true;
+  }
+
+  const ownerId = getThreadOwnerId(message);
+  return ownerId ? config.supportForumAuthorIds.includes(ownerId) : false;
+};
+
 const shouldRespond = (client: Client, message: Message) => {
   if (message.author.bot) {
     return false;
@@ -41,12 +60,46 @@ const shouldRespond = (client: Client, message: Message) => {
   }
 
   const mentioned = client.user ? message.mentions.has(client.user) : false;
-  const inSupportChannel =
+  const parentChannelId = getParentChannelId(message);
+  const inConfiguredSupportSurface =
     config.supportChannelIds.length === 0 ||
-    config.supportChannelIds.includes(message.channel.id);
+    config.supportChannelIds.includes(message.channel.id) ||
+    (parentChannelId
+      ? config.supportChannelIds.includes(parentChannelId)
+      : false);
+  const inRestrictedForumThread =
+    isPublicThread(message) &&
+    typeof parentChannelId === "string" &&
+    config.supportChannelIds.includes(parentChannelId) &&
+    !isAllowedForumThreadOwner(message);
+
+  if (inRestrictedForumThread) {
+    return false;
+  }
+
+  const inSupportChannel = inConfiguredSupportSurface;
   const command = message.content.trim().startsWith("!support");
 
   return mentioned || command || inSupportChannel;
+};
+
+const getPrivateDiagnosticsChannel = async (
+  client: Client,
+  message: Message
+) => {
+  if (!config.privateDiagnosticsChannelId) {
+    return message.channel;
+  }
+
+  const channel = await client.channels.fetch(config.privateDiagnosticsChannelId);
+
+  if (!channel?.isTextBased()) {
+    throw new Error(
+      "PRIVATE_DIAGNOSTICS_CHANNEL_ID must point to a text channel that can create private threads."
+    );
+  }
+
+  return channel;
 };
 
 const cleanCustomerMessage = (client: Client, message: Message) => {
@@ -162,10 +215,15 @@ export const registerSupportListeners = (
       });
 
       if (decision.requiresPrivateDiagnostics && !isPrivateThread(message)) {
+        const diagnosticsChannel = await getPrivateDiagnosticsChannel(
+          client,
+          message
+        );
         const thread = await createPrivateInvestigationThread(
           message,
           decision,
-          debugFields
+          debugFields,
+          diagnosticsChannel
         );
         const threadUrl = `https://discord.com/channels/${message.guild?.id}/${thread.id}`;
         const staffMentions = decision.staffUserIds
