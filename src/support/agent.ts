@@ -68,6 +68,26 @@ const rewritePrivateStaffNote = async (answer: string, model?: string) => {
   return polishSupportAnswer(result.text, "private");
 };
 
+const rewritePublicSupportAnswer = async (answer: string, model?: string) => {
+  const result = await generateText({
+    model: openai(model ?? config.openaiModel),
+    system: [
+      "Rewrite the draft as a complete, concise public Discord support reply.",
+      "Preserve only facts present in the draft. Do not invent checks or outcomes.",
+      "Maximum 550 characters.",
+      "Use 2-4 short sentences.",
+      "No headings, numbered lists, bullets, or long checklists.",
+      "Give the likely cause, one concrete next step, and at most one follow-up detail.",
+      "Do not mention private diagnostics, Datadog, Metabase, logs, or internal tools.",
+      "Do not end mid-sentence. If needed, drop less important details to keep the answer complete.",
+    ].join("\n"),
+    prompt: answer,
+    maxOutputTokens: 180,
+  });
+
+  return polishSupportAnswer(result.text, "public");
+};
+
 const hasActionableDiagnosticSignal = (fields: DebugFields) =>
   Boolean(
     fields.request_id ||
@@ -266,7 +286,7 @@ export const runSupportAgent = async ({
     system,
     messages,
     ...(tools ? { tools } : {}),
-    maxOutputTokens: mode === "private" ? 900 : 220,
+    maxOutputTokens: mode === "private" ? 900 : 650,
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
 
@@ -276,5 +296,5 @@ export const runSupportAgent = async ({
     return rewritePrivateStaffNote(polished, model);
   }
 
-  return polished;
+  return rewritePublicSupportAnswer(polished, model);
 };
