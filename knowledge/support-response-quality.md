@@ -20,20 +20,23 @@ One missing non-secret detail, only if needed.
 Good private diagnostic answer shape:
 
 ```txt
-What I checked:
-Finding:
-Next step:
-Evidence:
+I have the context for [provided identifiers].
+[Customer-safe likely cause.]
+Please share [one specific missing detail] from [where to find it].
+Once we have that, we can check [what support will verify].
 ```
 
-Private diagnostic notes are staff notes, not model plans. Do not use internal
-planning labels such as "ask customer for 1 item", "validate root causes", or
-"next diagnostic step" when a normal support sentence would be clearer.
+Private diagnostic replies should be customer-facing support updates, even in
+staff-only threads. Include supplied debug values when useful, but do not turn
+the answer into an internal log summary. Avoid planning labels such as "ask
+customer for 1 item", "validate root causes", or "next diagnostic step" when a
+normal support sentence would be clearer.
 
 Good:
 
 ```txt
-Missing detail: exact `owner/repo` from the failed tool call.
+I have the context for org `org_...` and user `user_...`.
+Please share the request ID from one failed tool execution; it is usually in the SDK error output or dashboard run log.
 ```
 
 Bad:

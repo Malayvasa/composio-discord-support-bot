@@ -43,17 +43,19 @@ const rewritePrivateStaffNote = async (answer: string, model?: string) => {
   const result = await generateText({
     model: openai(model ?? config.openaiModel),
     system: [
-      "Rewrite the draft as a concise private Discord staff note.",
+      "Rewrite the draft as a concise customer-facing support update for a private Discord support thread.",
       "Preserve only facts present in the draft. Do not invent checks or outcomes.",
       "Maximum 850 characters.",
-      "Use exactly this shape:",
-      "Likely cause: one sentence.",
-      "Checked: one sentence, or 'Not enough signal to check internal logs yet.'",
-      "Missing detail: one specific detail to ask for, with where to find it.",
-      "Next: one sentence.",
+      "Use friendly support language, not internal investigation labels.",
+      "Use 3-4 short sentences, not headings.",
+      "Acknowledge what context we have.",
+      "Explain the likely issue in customer-safe terms.",
+      "Ask for one specific next detail and say where to find it.",
+      "Say what we will check after receiving it.",
       "Do not include markdown headings, numbered lists, docs link lists, or raw tool/schema/parameter errors.",
       "Do not say 'ask customer for 1 item', 'unblocks everything', or other planning labels.",
       "If the draft asks for multiple customer details, keep only the most important one.",
+      "Avoid phrases like 'Datadog query', 'Metabase query', 'internal logs', or raw IDs unless they were supplied by the user and are necessary.",
       "A reported @toolkit value is the customer's failing toolkit. Do not tell staff to enable that provider toolkit for debugging.",
       "Datadog and Metabase are internal Composio observability tools for checking Composio-side execution and account state.",
     ].join("\n"),
@@ -75,15 +77,24 @@ const hasActionableDiagnosticSignal = (fields: DebugFields) =>
 
 const buildInsufficientSignalPrivateReply = (fields: DebugFields) => {
   const hasToolContext = Boolean(fields.toolkit || fields.tool || fields.error);
-  const likelyCause = hasToolContext
-    ? "the reported tool failure needs one concrete execution before we can separate provider auth, repo access, and Composio-side state."
-    : "there is not enough execution context yet to diagnose from account identifiers alone.";
+  const context = [
+    fields.project_id ? `project ${fields.project_id}` : "",
+    fields.org_id ? `org ${fields.org_id}` : "",
+    fields.user_id ? `user ${fields.user_id}` : "",
+    fields.toolkit ? `${fields.toolkit} toolkit` : "",
+    fields.tool ? fields.tool : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+  const likelyIssue = hasToolContext
+    ? "A 403 here usually means the connected provider account can authenticate, but the provider is denying access to the specific resource or action."
+    : "The account identifiers are helpful, but they do not point to a single failed execution yet.";
 
   return [
-    `Likely cause: ${likelyCause}`,
-    "Checked: Not enough signal to search internal logs reliably yet.",
-    "Missing detail: request ID from one failed tool execution. It is usually in the SDK/tool error output, dashboard run log, or server log line for the failed call.",
-    "Next: With that request ID, check Datadog and Metabase for the Composio execution, connected-account state, and sanitized provider error.",
+    context ? `I have the context for ${context}.` : "I have the account context from the report.",
+    likelyIssue,
+    "Please share the request ID from one failed tool execution; it is usually in the SDK error output, dashboard run log, or the server log line for that failed call.",
+    "Once we have that request ID, we can check the exact Composio execution, connected-account state, and sanitized provider error.",
   ].join("\n");
 };
 
@@ -146,10 +157,10 @@ Mode:
 ${modeInstructions}
 
 When responding:
-- Be concise. Public replies should usually be 2-5 lines. Private diagnostics should use short sections only when useful.
+- Be concise. Public replies should usually be 2-5 lines. Private diagnostics should still read like a customer-facing support update, not an internal log note.
 - Start with the likely issue or next step.
 - If you used tools, summarize what you checked.
-- If you need more information, ask for one specific detail in plain staff language, for example "Please ask the customer for the exact owner/repo." Never write planning labels like "ask customer for 1 item."
+- If you need more information, ask for one specific detail in plain support language, for example "Please share the request ID from one failed tool execution." Never write planning labels like "ask customer for 1 item."
 - If staff action is needed, include an evidence bundle that a teammate can act on without promising that you created an escalation.
 - Do not paste long raw logs or file contents back into Discord. Summarize the relevant signal and cite the attachment name.
 - Do not expose raw tool-call, schema, or parameter errors unless the operator must act on that exact error. Prefer "I could not confirm this in internal logs yet" over raw diagnostics-tool failure text.

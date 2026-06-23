@@ -12,7 +12,7 @@ import {
   collectSupportAttachments,
   formatAttachmentMetadata,
 } from "../support/attachments.js";
-import { parseDebugFields } from "../support/debug-fields.js";
+import { formatDebugFields, parseDebugFields } from "../support/debug-fields.js";
 import { classifyPrivacy, isConfiguredStaffUser } from "../support/privacy.js";
 import {
   formatMessageForContext,
@@ -133,16 +133,6 @@ const shouldTagStaff = (
 
 const formatStaffMentions = (staffUserIds: string[]) =>
   staffUserIds.map((userId) => `<@${userId}>`).join(" ");
-
-const formatDebugFieldNames = (debugFields: Record<string, string | undefined>) => {
-  const keys = Object.keys(debugFields).filter((key) => debugFields[key]);
-
-  if (keys.length === 0) {
-    return "none provided";
-  }
-
-  return keys.map((key) => `@${key}`).join(", ");
-};
 
 const getPrivateDiagnosticsChannel = async (
   client: Client,
@@ -329,7 +319,10 @@ export const registerSupportListeners = (
           `Private thread: ${threadUrl}`,
           `Public message: ${message.url}`,
           `Route: ${decision.route}`,
-          `Debug fields received: ${formatDebugFieldNames(debugFields)}`,
+          "",
+          "Debug fields:",
+          formatDebugFields(debugFields),
+          "",
           attachments.length > 0
             ? `Attachments: ${formatAttachmentMetadata(attachments).replace(/\n/g, "; ")}`
             : "Attachments: none provided",
