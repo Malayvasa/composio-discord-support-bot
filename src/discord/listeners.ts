@@ -1,6 +1,11 @@
 import { MessageFlags, type Client } from "discord.js";
 import { config } from "../config.js";
 import type { SupportSessionManager } from "../composio/session.js";
+import {
+  formatSupportCaseState,
+  isDuplicateCaseReply,
+  upsertSupportCaseState,
+} from "./case-state.js";
 import { createPrivateInvestigationThread } from "./private-thread.js";
 import { runSupportAgent } from "../support/agent.js";
 import { collectSupportAttachments } from "../support/attachments.js";
@@ -57,6 +62,17 @@ const mergeDebugFields = (
 const isPrivateThreadBump = (message: string) =>
   isGenericDiagnosticsFollowup(message) ||
   /^(?:\?+|hi\??|hey\??|hello\??|bro\??|ping\??)$/i.test(message.trim());
+
+const buildPrivateAgentContext = (
+  caseState: ReturnType<typeof upsertSupportCaseState>,
+  discordContext: string
+) =>
+  [
+    formatSupportCaseState(caseState),
+    "",
+    "Recent Discord context:",
+    discordContext,
+  ].join("\n");
 
 export const registerSupportListeners = (
   client: Client,
@@ -196,6 +212,15 @@ export const registerSupportListeners = (
         });
 
         const supportSession = await sessions.getSupportSession();
+        const caseState = upsertSupportCaseState(thread.id, {
+          sourceMessageUrl: message.url,
+          route: decision.route,
+          originalMessage: latestCustomerMessage,
+          fields: debugFields,
+          composioSessionId: supportSession.sessionId,
+          composioUserId: supportSession.userId,
+          lastCustomerMessage: latestCustomerMessage,
+        });
         const privateAnswer = await withProgressUpdates({
           message: privateProgress,
           states: privateProgressStates,
@@ -203,7 +228,11 @@ export const registerSupportListeners = (
             withTypingHeartbeat(thread, () =>
               runSupportAgent({
                 customerMessage: latestCustomerMessage,
-                discordContext: privateCaseContext,
+                discordContext: [
+                  privateCaseContext,
+                  "",
+                  formatSupportCaseState(caseState),
+                ].join("\n"),
                 discordMessageUrl: message.url,
                 mode: "private",
                 tools: supportSession.tools,
@@ -215,6 +244,9 @@ export const registerSupportListeners = (
             ),
         });
 
+        upsertSupportCaseState(thread.id, {
+          lastAssistantReply: privateAnswer,
+        });
         await editReplyWithLongMessage({
           reply: privateProgress,
           channel: thread,
@@ -230,6 +262,14 @@ export const registerSupportListeners = (
         : config.publicDocsToolkits.length > 0
           ? await sessions.getPublicDocsSession()
           : undefined;
+      const caseState = isPrivateThread(message)
+        ? upsertSupportCaseState(message.channel.id, {
+            fields: debugFields,
+            composioSessionId: supportSession?.sessionId,
+            composioUserId: supportSession?.userId,
+            lastCustomerMessage: latestCustomerMessage,
+          })
+        : undefined;
       const answer = await withProgressUpdates({
         message: thinking,
         states: isPrivateThread(message) ? privateProgressStates : publicProgressStates,
@@ -237,7 +277,9 @@ export const registerSupportListeners = (
           withTypingHeartbeat(channel, () =>
             runSupportAgent({
               customerMessage: latestCustomerMessage,
-              discordContext,
+              discordContext: caseState
+                ? buildPrivateAgentContext(caseState, discordContext)
+                : discordContext,
               discordMessageUrl: message.url,
               mode: isPrivateThread(message) ? "private" : "public",
               tools: supportSession?.tools,
@@ -248,6 +290,24 @@ export const registerSupportListeners = (
             })
           ),
       });
+
+      if (
+        isPrivateThread(message) &&
+        isDuplicateCaseReply(message.channel.id, answer)
+      ) {
+        await thinking.edit({
+          content:
+            "I do not have a new update yet. Add the next detail here and I will continue from the case context above.",
+          flags: MessageFlags.SuppressEmbeds,
+        });
+        return;
+      }
+
+      if (isPrivateThread(message)) {
+        upsertSupportCaseState(message.channel.id, {
+          lastAssistantReply: answer,
+        });
+      }
 
       const shouldMentionStaff = shouldTagStaff(
         message,
