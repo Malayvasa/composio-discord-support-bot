@@ -6,7 +6,7 @@ It shows how to:
 
 - Use `composio.create(userId)` and `session.tools()`.
 - Keep public Discord replies separate from private support diagnostics.
-- Let a support team connect internal tools once, instead of asking customers to authenticate in chat.
+- Run private diagnostics through a support-team Composio user.
 - Use public docs search for product questions and private tool access for sensitive debugging.
 
 ## How It Works
