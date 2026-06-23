@@ -64,6 +64,29 @@ const rewritePrivateStaffNote = async (answer: string, model?: string) => {
   return polishSupportAnswer(result.text, "private");
 };
 
+const hasActionableDiagnosticSignal = (fields: DebugFields) =>
+  Boolean(
+    fields.request_id ||
+      fields.trace_id ||
+      fields.connected_account_id ||
+      fields.session_id ||
+      (fields.tool && fields.error && fields.time_window)
+  );
+
+const buildInsufficientSignalPrivateReply = (fields: DebugFields) => {
+  const hasToolContext = Boolean(fields.toolkit || fields.tool || fields.error);
+  const likelyCause = hasToolContext
+    ? "the reported tool failure needs one concrete execution before we can separate provider auth, repo access, and Composio-side state."
+    : "there is not enough execution context yet to diagnose from account identifiers alone.";
+
+  return [
+    `Likely cause: ${likelyCause}`,
+    "Checked: Not enough signal to search internal logs reliably yet.",
+    "Missing detail: request ID from one failed tool execution. It is usually in the SDK/tool error output, dashboard run log, or server log line for the failed call.",
+    "Next: With that request ID, check Datadog and Metabase for the Composio execution, connected-account state, and sanitized provider error.",
+  ].join("\n");
+};
+
 export interface SupportTurnInput {
   customerMessage: string;
   discordContext: string;
@@ -147,6 +170,10 @@ export const runSupportAgent = async ({
   attachments = [],
   model,
 }: SupportTurnInput) => {
+  if (mode === "private" && !hasActionableDiagnosticSignal(debugFields ?? {})) {
+    return buildInsufficientSignalPrivateReply(debugFields ?? {});
+  }
+
   const system = await buildSystemPrompt(mode);
 
   const messages: ModelMessage[] = [
