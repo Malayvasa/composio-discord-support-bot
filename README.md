@@ -10,6 +10,18 @@ It shows how to:
 - Use public docs search for product questions and private tool access for sensitive debugging.
 - Look up current Composio toolkits, tools, schemas, scopes, and versions from the Composio API.
 
+## Main Pattern
+
+```ts
+const composio = new Composio({ provider: new VercelProvider() });
+const session = await composio.create("support-team", {
+  toolkits: {
+    enable: ["composio_search", "datadog", "metabase"],
+  },
+});
+const tools = await session.tools();
+```
+
 ## How It Works
 
 ```mermaid
@@ -119,17 +131,3 @@ thread before reading small text-like files.
 - [src/support/agent.ts](./src/support/agent.ts): support agent prompt and model call.
 - [src/support/privacy.ts](./src/support/privacy.ts): public vs private routing.
 - [knowledge/](./knowledge): editable support knowledge.
-
-## Composio Sessions Pattern
-
-```ts
-const composio = new Composio({ provider: new VercelProvider() });
-const session = await composio.create("support-team", {
-  toolkits: {
-    enable: ["composio_search", "datadog", "metabase"],
-  },
-});
-const tools = await session.tools();
-```
-
-Use this pattern for new Composio examples.
