@@ -39,6 +39,31 @@ const polishSupportAnswer = (answer: string, mode: "public" | "private") => {
   return polished.trim();
 };
 
+const rewritePrivateStaffNote = async (answer: string, model?: string) => {
+  const result = await generateText({
+    model: openai(model ?? config.openaiModel),
+    system: [
+      "Rewrite the draft as a concise private Discord staff note.",
+      "Preserve only facts present in the draft. Do not invent checks or outcomes.",
+      "Maximum 850 characters.",
+      "Use exactly this shape:",
+      "Likely cause: one sentence.",
+      "Checked: one sentence, or 'Not enough signal to check internal logs yet.'",
+      "Missing detail: one specific detail to ask for, with where to find it.",
+      "Next: one sentence.",
+      "Do not include markdown headings, numbered lists, docs link lists, or raw tool/schema/parameter errors.",
+      "Do not say 'ask customer for 1 item', 'unblocks everything', or other planning labels.",
+      "If the draft asks for multiple customer details, keep only the most important one.",
+      "A reported @toolkit value is the customer's failing toolkit. Do not tell staff to enable that provider toolkit for debugging.",
+      "Datadog and Metabase are internal Composio observability tools for checking Composio-side execution and account state.",
+    ].join("\n"),
+    prompt: answer,
+    maxOutputTokens: 260,
+  });
+
+  return polishSupportAnswer(result.text, "private");
+};
+
 export interface SupportTurnInput {
   customerMessage: string;
   discordContext: string;
@@ -154,8 +179,15 @@ export const runSupportAgent = async ({
     system,
     messages,
     ...(tools ? { tools } : {}),
+    maxOutputTokens: mode === "private" ? 900 : undefined,
     stopWhen: stepCountIs(config.maxAgentSteps),
   });
 
-  return polishSupportAnswer(result.text, mode);
+  const polished = polishSupportAnswer(result.text, mode);
+
+  if (mode === "private") {
+    return rewritePrivateStaffNote(polished, model);
+  }
+
+  return polished;
 };

@@ -319,13 +319,12 @@ export const registerSupportListeners = (
           `Private thread: ${threadUrl}`,
           `Public message: ${message.url}`,
           `Route: ${decision.route}`,
-          `Privacy reasons: ${decision.reasons.join(", ")}`,
-          "",
-          "Parsed @debug fields:",
-          formatDebugFields(debugFields),
-          "",
-          "Attachments:",
-          formatAttachmentMetadata(attachments),
+          Object.keys(debugFields).length > 0
+            ? `Debug fields: ${formatDebugFields(debugFields).replace(/\n/g, "; ")}`
+            : "Debug fields: none provided",
+          attachments.length > 0
+            ? `Attachments: ${formatAttachmentMetadata(attachments).replace(/\n/g, "; ")}`
+            : "Attachments: none provided",
         ].join("\n");
 
         await thread.send({
