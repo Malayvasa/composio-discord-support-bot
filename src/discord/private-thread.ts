@@ -5,7 +5,6 @@ import {
   type TextBasedChannel,
 } from "discord.js";
 import { config } from "../config.js";
-import type { DiscordBotToolkitClient } from "../composio/discord-bot.js";
 import type { DebugFields } from "../support/debug-fields.js";
 import type { PrivacyDecision } from "../support/privacy.js";
 
@@ -90,8 +89,7 @@ export const createPrivateInvestigationThread = async (
   message: Message,
   decision: PrivacyDecision,
   fields: DebugFields = {},
-  targetChannel: TextBasedChannel = message.channel,
-  discordBot?: DiscordBotToolkitClient
+  targetChannel: TextBasedChannel = message.channel
 ) => {
   if (!message.guild) {
     throw new Error("Private diagnostics require a guild channel.");
@@ -108,93 +106,17 @@ export const createPrivateInvestigationThread = async (
   }
 
   const threadName = buildThreadName(message, decision, fields);
-  const { thread, useDiscordBotActions } = await createThread({
-    message,
-    targetChannel,
-    threadName,
-    discordBot,
+  const thread = await targetChannel.threads.create({
+    name: threadName,
+    type: ChannelType.PrivateThread,
+    invitable: false,
+    reason: "Private support diagnostics requested from public Discord.",
   });
-
-  await addStaffMembers({
-    thread,
-    staffUserIds: decision.staffUserIds,
-    discordBot: useDiscordBotActions ? discordBot : undefined,
-  });
-
-  return thread;
-};
-
-const createThread = async ({
-  message,
-  targetChannel,
-  threadName,
-  discordBot,
-}: {
-  message: Message;
-  targetChannel: ThreadableChannel;
-  threadName: string;
-  discordBot?: DiscordBotToolkitClient;
-}) => {
-  if (discordBot?.enabled) {
-    try {
-      const threadId = await discordBot.createPrivateThread({
-        channelId: targetChannel.id,
-        name: threadName,
-      });
-      const channel = await message.client.channels.fetch(threadId);
-
-      if (channel?.type !== ChannelType.PrivateThread) {
-        throw new Error(
-          `Discordbot created channel ${threadId}, but it was not a private thread.`
-        );
-      }
-
-      console.log("[discordbot] created private diagnostics thread", {
-        threadId,
-        threadName,
-      });
-
-      return { thread: channel, useDiscordBotActions: true };
-    } catch (error) {
-      console.warn(
-        "[discordbot] failed to create private thread, falling back to discord.js",
-        error
-      );
-    }
-  }
-
-  return {
-    thread: await targetChannel.threads.create({
-      name: threadName,
-      type: ChannelType.PrivateThread,
-      invitable: false,
-      reason: "Private support diagnostics requested from public Discord.",
-    }),
-    useDiscordBotActions: false,
-  };
-};
-
-const addStaffMembers = async ({
-  thread,
-  staffUserIds,
-  discordBot,
-}: {
-  thread: PrivateThreadChannel;
-  staffUserIds: string[];
-  discordBot?: DiscordBotToolkitClient;
-}) => {
   const failedAdds: string[] = [];
 
-  for (const staffUserId of staffUserIds) {
+  for (const staffUserId of decision.staffUserIds) {
     try {
-      if (discordBot?.enabled) {
-        await discordBot.addThreadMember({
-          threadId: thread.id,
-          userId: staffUserId,
-        });
-      } else {
-        await thread.members.add(staffUserId);
-      }
+      await thread.members.add(staffUserId);
     } catch (error) {
       failedAdds.push(staffUserId);
       console.error("[discord] failed to add staff user to private thread", {
@@ -209,4 +131,6 @@ const addStaffMembers = async ({
       `Created private thread, but failed to add staff users: ${failedAdds.join(", ")}`
     );
   }
+
+  return thread;
 };

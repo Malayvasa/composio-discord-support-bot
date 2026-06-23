@@ -1,7 +1,6 @@
 import { createServer } from "node:http";
 import { Client, GatewayIntentBits, Partials } from "discord.js";
 import { config } from "./config.js";
-import { DiscordBotToolkitClient } from "./composio/discord-bot.js";
 import { SupportSessionManager } from "./composio/session.js";
 import { registerSupportListeners } from "./discord/listeners.js";
 
@@ -25,7 +24,6 @@ const client = new Client({
 });
 
 const sessions = new SupportSessionManager();
-const discordBot = new DiscordBotToolkitClient();
 
 client.once("ready", (readyClient) => {
   console.log(`[discord] logged in as ${readyClient.user.tag}`);
@@ -35,7 +33,7 @@ client.once("ready", (readyClient) => {
   });
 });
 
-registerSupportListeners(client, sessions, discordBot);
+registerSupportListeners(client, sessions);
 
 const shutdown = async (signal: string) => {
   console.log(`[shutdown] received ${signal}`);
