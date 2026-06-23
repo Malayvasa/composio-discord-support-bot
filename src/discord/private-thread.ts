@@ -63,6 +63,10 @@ const pickDebugSubject = (fields: DebugFields) => {
     return compactValue(fields.request_id);
   }
 
+  if (fields.log_id) {
+    return compactValue(fields.log_id);
+  }
+
   return undefined;
 };
 

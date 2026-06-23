@@ -139,6 +139,7 @@ Users can include structured clues in any support message:
 @time_window: last 2 hours
 @toolkit: datadog
 @tool: DATADOG_SEARCH_LOGS
+@log_id: log_your_tool_execution_log
 @error: 403 permission denied
 ```
 

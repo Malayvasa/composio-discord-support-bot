@@ -10,6 +10,7 @@ export type DebugFieldKey =
   | "connected_account_id"
   | "session_id"
   | "request_id"
+  | "log_id"
   | "trace_id"
   | "route"
   | "error";
@@ -39,6 +40,9 @@ const aliases: Record<string, DebugFieldKey> = {
   session_id: "session_id",
   request_id: "request_id",
   req_id: "request_id",
+  log_id: "log_id",
+  logid: "log_id",
+  action_log_id: "log_id",
   trace_id: "trace_id",
   route: "route",
   endpoint: "route",
@@ -86,6 +90,16 @@ export const parseDebugFields = (message: string): DebugFields => {
 
     if (requestIds.length > 0) {
       fields.request_id = Array.from(new Set(requestIds)).join(", ");
+    }
+  }
+
+  if (!fields.log_id) {
+    const logIds = Array.from(message.matchAll(/\blog_[A-Za-z0-9_-]+\b/g)).map(
+      ([logId]) => logId
+    );
+
+    if (logIds.length > 0) {
+      fields.log_id = Array.from(new Set(logIds)).join(", ");
     }
   }
 

@@ -3,7 +3,8 @@
 Users can include structured debug clues in any support message. These fields are optional. Accept partial context and ask for more only when it would materially improve the next diagnostic step.
 
 The bot also extracts common free-form clues, such as a `Request IDs:` block,
-`Tooling area: ...`, `Status: 400`, `Code: ...`, and `Slug: ...`.
+Composio tool execution log IDs like `log_...`, `Tooling area: ...`,
+`Status: 400`, `Code: ...`, and `Slug: ...`.
 Structured fields are preferred, but customers do not need to rewrite a natural
 support report into a form.
 
@@ -18,6 +19,7 @@ Example:
 @time_window: last 2 hours
 @toolkit: datadog
 @tool: DATADOG_SEARCH_LOGS
+@log_id: log_example
 @error: 403 permission denied
 ```
 
@@ -34,6 +36,7 @@ Supported clues:
 - `@connected_account_id`: Connected account ID, usually starts with `ca_`.
 - `@session_id`: Composio session ID.
 - `@request_id`: API/log request ID.
+- `@log_id`: Composio tool execution log ID, usually starts with `log_`.
 - `@trace_id`: Datadog or service trace ID.
 - `@route`: API route or endpoint.
 - `@error`: Exact error text or status.
@@ -41,6 +44,7 @@ Supported clues:
 Where users can find clues:
 
 - Request ID: API error response, response headers, SDK debug logs, or server logs.
+- Tool execution log ID: Composio logs, tool execution details, or support error output.
 - Trace ID: Datadog APM trace view, log correlation fields, or service error output.
 - Project ID: Composio dashboard project URL/settings.
 - Org ID: Composio dashboard org/workspace settings or URL.
@@ -50,3 +54,6 @@ Where users can find clues:
 - Time window: User report timestamp, incident timeline, or log timestamp.
 
 When context is missing, ask for at most three focused items and explain where to find them. Do not block on a complete form.
+
+When a Composio tool execution log ID is present, inspect that exact log in the
+private diagnostics thread before asking the customer to fetch it manually.

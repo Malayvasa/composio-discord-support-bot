@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.74",
+    "@composio/client": "^0.1.0-alpha.72",
     "@composio/core": "^0.11.0",
     "@composio/vercel": "^0.9.3",
     "ai": "^6.0.208",
