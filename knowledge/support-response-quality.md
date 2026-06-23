@@ -58,6 +58,21 @@ Do not paste raw internal tool errors, schema mismatches, or parameter errors
 into Discord unless a staff operator needs that exact implementation detail to
 fix the support bot. Summarize the impact instead.
 
+When internal diagnostics are used, separate exact evidence from pattern
+evidence:
+
+- Exact request IDs, trace IDs, session IDs, and connected account IDs are
+  stronger evidence than broad error or slug searches.
+- If an exact lookup returns no matches but a broad search returns related
+  events, say that plainly. Do not imply the customer's supplied execution was
+  confirmed.
+- Do not claim a spike, trend, outage, platform-wide issue, or multiple
+  affected toolkits/customers unless the tool results explicitly show counts or
+  multiple matching events.
+- When mentioning broad matches, include the useful count or scope, such as
+  "a broad SSRF search returned 50 recent matches, but the supplied request IDs
+  did not match."
+
 High-value support details:
 
 - Product surface and client.
