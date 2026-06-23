@@ -35,6 +35,11 @@ const getParentChannelId = (message: Message) =>
 const getThreadOwnerId = (message: Message) =>
   "ownerId" in message.channel ? message.channel.ownerId : undefined;
 
+const getChannelName = (message: Message) =>
+  "name" in message.channel && typeof message.channel.name === "string"
+    ? message.channel.name
+    : undefined;
+
 const isAllowedForumThreadOwner = (message: Message) => {
   if (!isPublicThread(message) || config.supportForumAuthorIds.length === 0) {
     return true;
@@ -82,6 +87,31 @@ const shouldRespond = (client: Client, message: Message) => {
   const command = message.content.trim().startsWith("!support");
 
   return mentioned || command || inSupportChannel;
+};
+
+const isExplicitRequest = (client: Client, message: Message) => {
+  const mentioned = client.user ? message.mentions.has(client.user) : false;
+  const command = message.content.trim().startsWith("!support");
+
+  return mentioned || command;
+};
+
+const isAutoForumPost = (message: Message) => {
+  const parentChannelId = getParentChannelId(message);
+
+  return (
+    isPublicThread(message) &&
+    typeof parentChannelId === "string" &&
+    config.supportChannelIds.includes(parentChannelId)
+  );
+};
+
+const isLikelyNonSupportPost = (message: Message, customerMessage: string) => {
+  const text = `${getChannelName(message) ?? ""} ${customerMessage}`.toLowerCase();
+
+  return /\b(hiring|job application|job specialist|remote role|rlhf|we'?re hiring|approved to be judge|hackathon judge)\b/i.test(
+    text
+  );
 };
 
 const getPrivateDiagnosticsChannel = async (
@@ -132,6 +162,21 @@ const getDiscordContext = async (
   return Array.from(fetched.values())
     .reverse()
     .map(formatMessageForContext)
+    .join("\n");
+};
+
+const buildDiscordContext = async (
+  channel: TextBasedChannel,
+  message: Message
+) => {
+  const channelName = getChannelName(message);
+  const context = await getDiscordContext(channel, message);
+
+  return [
+    channelName ? `Discord channel/thread name: ${channelName}` : "",
+    context,
+  ]
+    .filter(Boolean)
     .join("\n");
 };
 
@@ -186,6 +231,14 @@ export const registerSupportListeners = (
     const customerMessage = cleanCustomerMessage(client, message);
     const hasAttachments = message.attachments.size > 0;
 
+    if (
+      isAutoForumPost(message) &&
+      !isExplicitRequest(client, message) &&
+      isLikelyNonSupportPost(message, customerMessage)
+    ) {
+      return;
+    }
+
     if (!customerMessage && !hasAttachments) {
       await sendLongReply(
         message,
@@ -207,7 +260,7 @@ export const registerSupportListeners = (
 
     try {
       await channel.sendTyping();
-      const discordContext = await getDiscordContext(channel, message);
+      const discordContext = await buildDiscordContext(channel, message);
       const latestCustomerMessage =
         customerMessage || "[attachment-only support request]";
       const debugFields = parseDebugFields(latestCustomerMessage);

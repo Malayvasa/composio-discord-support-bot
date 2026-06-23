@@ -196,6 +196,9 @@ EVAL_CONCURRENCY=3
 - `src/discord/listeners.ts`: Discord message handling.
 - `src/discord/private-thread.ts`: Private thread creation and staff member adds.
 - `knowledge/`: Support and diagnostics runbooks.
+- `knowledge/known-incidents-and-status.md`: Incident-first support guidance.
+- `knowledge/mcp-auth-triage.md`: MCP, OAuth, API key, and connected-account triage.
+- `knowledge/support-response-quality.md`: Response quality and escalation-language rules.
 - `docs/plans/2026-06-22-customer-support-bot-design.md`: Design note.
 - `docs/plans/2026-06-22-private-diagnostics-threads-design.md`: Private diagnostics design note.
 - `docs/plans/2026-06-22-support-forum-eval-design.md`: Offline eval design note.

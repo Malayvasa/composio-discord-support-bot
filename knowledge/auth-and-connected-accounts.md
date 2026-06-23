@@ -21,6 +21,32 @@ For customer-owned toolkits, such as a customer's Gmail or GitHub in their own a
 - Auth config ID only when debugging custom auth.
 - Error text and timestamp.
 
+Before suggesting a fix, classify the auth path:
+
+- Composio-managed OAuth.
+- Custom OAuth.
+- API key.
+- Bearer token.
+- Service account.
+- S2S OAuth or client credentials.
+- MCP runtime auth.
+- Dashboard or management API auth.
+
+Ask for the exact surface and client:
+
+- Dashboard, Connect, hosted MCP, custom MCP, SDK, CLI, or REST API.
+- Claude Desktop, Claude Code, Codex, Cursor, browser, server, or custom agent.
+- Endpoint path, tool slug, or MCP URL shape with secrets removed.
+
+Do not assume that a key working for one endpoint will work for another endpoint. Ask for method, path, API version, auth header name, and key type.
+
+For provider OAuth scope problems:
+
+- Ask which scopes were requested.
+- Ask which scopes were granted if the provider exposes that.
+- Ask for the sanitized provider error code and request ID.
+- Mention admin consent or tenant policy only when the provider or error suggests it.
+
 Never paste OAuth tokens, API keys, or secret headers into Discord.
 
 If debugging uses a customer email, organization ID, connected account ID, auth config ID, request ID, or trace ID, move the investigation to a private staff diagnostics thread before using internal tools.
